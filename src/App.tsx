@@ -11,6 +11,7 @@ import EditWallpaper from "./pages/EditWallpaper";
 import AddDevices from "./pages/AddDevices";
 import NotFound from "./pages/NotFound";
 import UploadWallpaper from "./pages/UploadWallpaper";
+import BulkThumbnailEdit from "./pages/BulkThumbnailEdit";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/add-wallpaper" element={<AddWallpaper />} />
             <Route path="/upload-wallpaper" element={<UploadWallpaper />} />
             <Route path="/edit-wallpaper" element={<EditWallpaper />} />
+            <Route path="/bulk-thumbnail-edit" element={<BulkThumbnailEdit />} />
             <Route path="/add-devices" element={<AddDevices />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -1,9 +1,18 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git checkout:*)"
+      "Bash(npm run lint)",
+      "Bash(npm run dev:*)",
+      "Bash(npm run lint:*)",
+      "Bash(grep:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm run:*)",
+      "Bash(mkdir:*)",
+      "Bash(find:*)",
+      "Read(//Users/Azam/AndroidStudioProjects/**)",
+      "Bash(npm install:*)",
+      "Bash(vercel:*)"
     ],
-    "deny": [],
-    "ask": []
+    "defaultMode": "acceptEdits"
   }
 }

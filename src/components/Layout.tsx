@@ -1,6 +1,7 @@
 
 import React from 'react';
 import Sidebar from './Sidebar';
+import FloatingScrollButton from './ui/floating-scroll-button';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface LayoutProps {
@@ -18,6 +19,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           {children}
         </div>
       </main>
+      <FloatingScrollButton />
     </div>
   );
 };

@@ -195,7 +195,7 @@ const EditWallpaperDialog: React.FC<EditWallpaperDialogProps> = ({
     setLoading(true);
     
     try {
-      let updatedData: WallpaperData = {
+      const updatedData: WallpaperData = {
         ...editedWallpaper,
         imageUrl: wallpaper.imageUrl,
         wallpaperName: editedWallpaper.wallpaperName || wallpaper.wallpaperName,

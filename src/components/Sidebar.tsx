@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { BarChart3, Image, Smartphone, Edit, Sun, Moon, Menu, X, Upload as UploadIcon } from 'lucide-react';
+import { BarChart3, Image, Smartphone, Edit, Sun, Moon, Menu, X, RefreshCw } from 'lucide-react';
 import { useTheme } from '@/hooks/use-theme';
 import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -18,12 +18,17 @@ const Sidebar: React.FC = () => {
 
   const SidebarContent = () => (
     <div className="w-full flex flex-col h-full">
-      <div className="p-6 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-white">WallpapersApp Admin</h1>
+      <div className="p-6 flex items-center justify-between animate-fade-in">
+        <div className="flex items-center space-x-2">
+          <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-600 rounded-lg flex items-center justify-center">
+            <Image className="h-4 w-4 text-white" />
+          </div>
+          <h1 className="text-xl font-bold text-white">WallpapersApp</h1>
+        </div>
         <Button 
           variant="ghost" 
           size="icon" 
-          className="h-8 w-8 text-white/70 hover:text-white hover:bg-white/10"
+          className="h-8 w-8 text-white/70 hover:text-white hover:bg-white/10 transition-all duration-200 hover:scale-110"
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
         >
@@ -32,27 +37,47 @@ const Sidebar: React.FC = () => {
       </div>
 
       <nav className="mt-4 flex-1">
-        <Link to="/" className={`sidebar-item ${isActive('/')}`}>
+        <Link 
+          to="/" 
+          className={`sidebar-item ${isActive('/')} animate-fade-in hover:translate-x-1 transition-all duration-200`}
+          style={{ animationDelay: '200ms' }}
+        >
           <BarChart3 className="h-5 w-5" />
           <span>Analytics</span>
         </Link>
         
-        <Link to="/add-wallpaper" className={`sidebar-item ${isActive('/add-wallpaper')}`}>
+        <Link 
+          to="/add-wallpaper" 
+          className={`sidebar-item ${isActive('/add-wallpaper')} animate-fade-in hover:translate-x-1 transition-all duration-200`}
+          style={{ animationDelay: '300ms' }}
+        >
           <Image className="h-5 w-5" />
           <span>Add Wallpaper</span>
         </Link>
         
-        <Link to="/edit-wallpaper" className={`sidebar-item ${isActive('/edit-wallpaper')}`}>
+        <Link 
+          to="/edit-wallpaper" 
+          className={`sidebar-item ${isActive('/edit-wallpaper')} animate-fade-in hover:translate-x-1 transition-all duration-200`}
+          style={{ animationDelay: '400ms' }}
+        >
           <Edit className="h-5 w-5" />
           <span>Edit Wallpaper</span>
         </Link>
         
-        <Link to="/upload-wallpaper" className={`sidebar-item ${isActive('/upload-wallpaper')}`}>
-          <UploadIcon className="h-5 w-5" />
-          <span>Upload to S3</span>
+        <Link 
+          to="/bulk-thumbnail-edit" 
+          className={`sidebar-item ${isActive('/bulk-thumbnail-edit')} animate-fade-in hover:translate-x-1 transition-all duration-200`}
+          style={{ animationDelay: '450ms' }}
+        >
+          <RefreshCw className="h-5 w-5" />
+          <span>Bulk Thumbnail Edit</span>
         </Link>
         
-        <Link to="/add-devices" className={`sidebar-item ${isActive('/add-devices')}`}>
+        <Link 
+          to="/add-devices" 
+          className={`sidebar-item ${isActive('/add-devices')} animate-fade-in hover:translate-x-1 transition-all duration-200`}
+          style={{ animationDelay: '500ms' }}
+        >
           <Smartphone className="h-5 w-5" />
           <span>Add Devices</span>
         </Link>

@@ -44,9 +44,15 @@ type SortDirection = 'asc' | 'desc';
 const EditWallpaper = () => {
   const [trendingWallpapers, setTrendingWallpapers] = useState<Wallpaper[]>([]);
   const [samsungWallpapers, setSamsungWallpapers] = useState<Wallpaper[]>([]);
+  const [appleWallpapers, setAppleWallpapers] = useState<Wallpaper[]>([]);
+  const [oneplusWallpapers, setOneplusWallpapers] = useState<Wallpaper[]>([]);
   const [loadingTrending, setLoadingTrending] = useState(true);
   const [loadingSamsung, setLoadingSamsung] = useState(true);
+  const [loadingApple, setLoadingApple] = useState(true);
+  const [loadingOneplus, setLoadingOneplus] = useState(true);
   const [groupedSamsungWallpapers, setGroupedSamsungWallpapers] = useState<Record<string, Wallpaper[]>>({});
+  const [groupedAppleWallpapers, setGroupedAppleWallpapers] = useState<Record<string, Wallpaper[]>>({});
+  const [groupedOneplusWallpapers, setGroupedOneplusWallpapers] = useState<Record<string, Wallpaper[]>>({});
   const [groupedTrendingWallpapers, setGroupedTrendingWallpapers] = useState<Record<string, Wallpaper[]>>({});
   
   // Sorting states
@@ -56,6 +62,8 @@ const EditWallpaper = () => {
   // Filter states
   const [selectedTrendingCategory, setSelectedTrendingCategory] = useState<string>('all');
   const [selectedSamsungSeries, setSelectedSamsungSeries] = useState<string>('all');
+  const [selectedAppleSeries, setSelectedAppleSeries] = useState<string>('all');
+  const [selectedOneplusSeries, setSelectedOneplusSeries] = useState<string>('all');
 
   useEffect(() => {
     const fetchWallpapers = async () => {
@@ -96,10 +104,46 @@ const EditWallpaper = () => {
         
         setGroupedSamsungWallpapers(grouped);
         setLoadingSamsung(false);
+
+        // Fetch Apple wallpapers
+        setLoadingApple(true);
+        const appleData = await getAllWallpapersForBrand('Apple');
+        setAppleWallpapers(appleData);
+        
+        // Group Apple wallpapers by series
+        const appleGrouped = appleData.reduce((acc: Record<string, Wallpaper[]>, wallpaper) => {
+          const series = wallpaper.data.series || 'Other';
+          if (!acc[series]) {
+            acc[series] = [];
+          }
+          acc[series].push(wallpaper);
+          return acc;
+        }, {});
+        setGroupedAppleWallpapers(appleGrouped);
+        setLoadingApple(false);
+
+        // Fetch OnePlus wallpapers
+        setLoadingOneplus(true);
+        const oneplusData = await getAllWallpapersForBrand('OnePlus');
+        setOneplusWallpapers(oneplusData);
+        
+        // Group OnePlus wallpapers by series
+        const oneplusGrouped = oneplusData.reduce((acc: Record<string, Wallpaper[]>, wallpaper) => {
+          const series = wallpaper.data.series || 'Other';
+          if (!acc[series]) {
+            acc[series] = [];
+          }
+          acc[series].push(wallpaper);
+          return acc;
+        }, {});
+        setGroupedOneplusWallpapers(oneplusGrouped);
+        setLoadingOneplus(false);
       } catch (error) {
         console.error('Error fetching wallpapers:', error);
         setLoadingTrending(false);
         setLoadingSamsung(false);
+        setLoadingApple(false);
+        setLoadingOneplus(false);
       }
     };
     
@@ -187,8 +231,30 @@ const EditWallpaper = () => {
     return sortWallpapers(filtered, sortField, sortDirection);
   };
 
+  const getFilteredAppleWallpapers = () => {
+    let filtered = appleWallpapers;
+    if (selectedAppleSeries !== 'all') {
+      filtered = appleWallpapers.filter(wallpaper => 
+        wallpaper.data.series === selectedAppleSeries
+      );
+    }
+    return sortWallpapers(filtered, sortField, sortDirection);
+  };
+
+  const getFilteredOneplusWallpapers = () => {
+    let filtered = oneplusWallpapers;
+    if (selectedOneplusSeries !== 'all') {
+      filtered = oneplusWallpapers.filter(wallpaper => 
+        wallpaper.data.series === selectedOneplusSeries
+      );
+    }
+    return sortWallpapers(filtered, sortField, sortDirection);
+  };
+
   const sortedTrendingWallpapers = getFilteredTrendingWallpapers();
   const sortedSamsungWallpapers = getFilteredSamsungWallpapers();
+  const sortedAppleWallpapers = getFilteredAppleWallpapers();
+  const sortedOneplusWallpapers = getFilteredOneplusWallpapers();
 
   // Get unique categories and series for filter options
   const trendingCategories = React.useMemo(() => {
@@ -211,6 +277,26 @@ const EditWallpaper = () => {
     return Array.from(series).sort();
   }, [samsungWallpapers]);
 
+  const appleSeries = React.useMemo(() => {
+    const series = new Set<string>();
+    appleWallpapers.forEach(wallpaper => {
+      if (wallpaper.data.series) {
+        series.add(wallpaper.data.series);
+      }
+    });
+    return Array.from(series).sort();
+  }, [appleWallpapers]);
+
+  const oneplusSeries = React.useMemo(() => {
+    const series = new Set<string>();
+    oneplusWallpapers.forEach(wallpaper => {
+      if (wallpaper.data.series) {
+        series.add(wallpaper.data.series);
+      }
+    });
+    return Array.from(series).sort();
+  }, [oneplusWallpapers]);
+
   // Toggle sort direction
   const toggleSortDirection = () => {
     setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -218,8 +304,20 @@ const EditWallpaper = () => {
 
   // Handle delete all wallpapers in category
   const handleDeleteAllWallpapers = async (activeTab: string) => {
-    const categoryName = activeTab === 'trending' ? selectedTrendingCategory : selectedSamsungSeries;
-    const collectionName = activeTab === 'trending' ? 'TrendingWallpapers' : 'Samsung';
+    const categoryName = activeTab === 'trending' 
+      ? selectedTrendingCategory 
+      : activeTab === 'samsung' 
+        ? selectedSamsungSeries 
+        : activeTab === 'apple'
+          ? selectedAppleSeries
+          : selectedOneplusSeries;
+    const collectionName = activeTab === 'trending' 
+      ? 'TrendingWallpapers' 
+      : activeTab === 'samsung' 
+        ? 'Samsung' 
+        : activeTab === 'apple'
+          ? 'Apple'
+          : 'OnePlus';
     
     if (!categoryName || categoryName === 'all') return;
     
@@ -233,9 +331,15 @@ const EditWallpaper = () => {
         if (activeTab === 'trending') {
           const trendingData = await getAllTrendingWallpapers();
           setTrendingWallpapers(trendingData);
-        } else {
+        } else if (activeTab === 'samsung') {
           const samsungData = await getAllWallpapersForBrand('Samsung');
           setSamsungWallpapers(samsungData);
+        } else if (activeTab === 'apple') {
+          const appleData = await getAllWallpapersForBrand('Apple');
+          setAppleWallpapers(appleData);
+        } else if (activeTab === 'oneplus') {
+          const oneplusData = await getAllWallpapersForBrand('OnePlus');
+          setOneplusWallpapers(oneplusData);
         }
         
         alert(`All wallpapers in "${categoryName}" have been deleted successfully.`);
@@ -325,18 +429,76 @@ const EditWallpaper = () => {
           </SelectContent>
         </Select>
       )}
+
+      {activeTab === 'apple' && (
+        <Select
+          value={selectedAppleSeries}
+          onValueChange={setSelectedAppleSeries}
+        >
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Filter by series" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Series</SelectItem>
+            {appleSeries.length === 0 ? (
+              <SelectItem value="no-series" disabled>
+                No series available
+              </SelectItem>
+            ) : (
+              appleSeries.map(series => (
+                <SelectItem key={series} value={series}>
+                  {series}
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+      )}
+
+      {activeTab === 'oneplus' && (
+        <Select
+          value={selectedOneplusSeries}
+          onValueChange={setSelectedOneplusSeries}
+        >
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Filter by series" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Series</SelectItem>
+            {oneplusSeries.length === 0 ? (
+              <SelectItem value="no-series" disabled>
+                No series available
+              </SelectItem>
+            ) : (
+              oneplusSeries.map(series => (
+                <SelectItem key={series} value={series}>
+                  {series}
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+      )}
       </div>
 
       {/* Delete All Button */}
       {((activeTab === 'trending' && selectedTrendingCategory !== 'all') || 
-        (activeTab === 'samsung' && selectedSamsungSeries !== 'all')) && (
+        (activeTab === 'samsung' && selectedSamsungSeries !== 'all') ||
+        (activeTab === 'apple' && selectedAppleSeries !== 'all') ||
+        (activeTab === 'oneplus' && selectedOneplusSeries !== 'all')) && (
         <Button
           variant="destructive"
           onClick={() => handleDeleteAllWallpapers(activeTab)}
           className="flex items-center space-x-2"
         >
           <Trash2 className="h-4 w-4" />
-          <span>Delete All in {activeTab === 'trending' ? selectedTrendingCategory : selectedSamsungSeries}</span>
+          <span>Delete All in {activeTab === 'trending' 
+            ? selectedTrendingCategory 
+            : activeTab === 'samsung' 
+              ? selectedSamsungSeries 
+              : activeTab === 'apple'
+                ? selectedAppleSeries
+                : selectedOneplusSeries}</span>
         </Button>
       )}
     </div>
@@ -353,6 +515,12 @@ const EditWallpaper = () => {
           </TabsTrigger>
           <TabsTrigger value="samsung">
             Samsung Wallpapers ({sortedSamsungWallpapers.length})
+          </TabsTrigger>
+          <TabsTrigger value="apple">
+            Apple Wallpapers ({sortedAppleWallpapers.length})
+          </TabsTrigger>
+          <TabsTrigger value="oneplus">
+            OnePlus Wallpapers ({sortedOneplusWallpapers.length})
           </TabsTrigger>
         </TabsList>
         
@@ -421,6 +589,84 @@ const EditWallpaper = () => {
                 {selectedSamsungSeries === 'all' 
                   ? "No Samsung wallpapers found."
                   : `No wallpapers found in "${selectedSamsungSeries}" series.`
+                }
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="apple">
+          {renderControls('apple')}
+          {loadingApple ? (
+            <Card className="w-full p-8 flex justify-center items-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </Card>
+          ) : sortedAppleWallpapers.length > 0 ? (
+            <div className="max-w-full mx-auto">
+              <WallpaperGrid 
+                wallpapers={sortedAppleWallpapers} 
+                collection="Apple"
+                onWallpaperUpdated={(updatedWallpapers) => {
+                  // Update both the full list and the grouped list
+                  getAllWallpapersForBrand('Apple').then(data => {
+                    setAppleWallpapers(data);
+                  });
+                }}
+                onWallpaperDeleted={() => {
+                  // Refresh the Apple wallpapers
+                  getAllWallpapersForBrand('Apple').then(data => {
+                    setAppleWallpapers(data);
+                  });
+                }}
+                gridColumns={5}
+                useThumbnails={true}
+              />
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="pt-6 text-center text-muted-foreground">
+                {selectedAppleSeries === 'all' 
+                  ? "No Apple wallpapers found."
+                  : `No wallpapers found in "${selectedAppleSeries}" series.`
+                }
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="oneplus">
+          {renderControls('oneplus')}
+          {loadingOneplus ? (
+            <Card className="w-full p-8 flex justify-center items-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </Card>
+          ) : sortedOneplusWallpapers.length > 0 ? (
+            <div className="max-w-full mx-auto">
+              <WallpaperGrid 
+                wallpapers={sortedOneplusWallpapers} 
+                collection="OnePlus"
+                onWallpaperUpdated={(updatedWallpapers) => {
+                  // Update both the full list and the grouped list
+                  getAllWallpapersForBrand('OnePlus').then(data => {
+                    setOneplusWallpapers(data);
+                  });
+                }}
+                onWallpaperDeleted={() => {
+                  // Refresh the OnePlus wallpapers
+                  getAllWallpapersForBrand('OnePlus').then(data => {
+                    setOneplusWallpapers(data);
+                  });
+                }}
+                gridColumns={5}
+                useThumbnails={true}
+              />
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="pt-6 text-center text-muted-foreground">
+                {selectedOneplusSeries === 'all' 
+                  ? "No OnePlus wallpapers found."
+                  : `No wallpapers found in "${selectedOneplusSeries}" series.`
                 }
               </CardContent>
             </Card>

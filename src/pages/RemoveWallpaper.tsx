@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { 
   getWallpaperIdByUrl, 
   getBannerByWallpaperUrl, 
+  getBannerByWallpaperUrlNested,
   removeWallpaper, 
   getAllTrendingWallpapers,
   getBrandCategories,
@@ -113,7 +114,12 @@ const RemoveWallpaper = () => {
       const wallpapers = await getWallpaperIdByUrl(imageUrl);
       setWallpaperDetails(wallpapers);
 
-      const banner = await getBannerByWallpaperUrl(imageUrl);
+      // Try both old and new banner structure
+      let banner = await getBannerByWallpaperUrl(imageUrl);
+      if (!banner) {
+        // Try new nested banner structure
+        banner = await getBannerByWallpaperUrlNested(imageUrl);
+      }
       setBannerDetails(banner);
 
       if (wallpapers.length === 0 && !banner) {
@@ -442,9 +448,23 @@ const RemoveWallpaper = () => {
                     <div className="space-y-2">
                       <h3 className="text-lg font-medium">Banner</h3>
                       <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <p><span className="font-medium">ID:</span> {bannerDetails.id}</p>
-                        <p><span className="font-medium">Name:</span> {bannerDetails.data.bannerName}</p>
-                        <p><span className="font-medium">URL:</span> {bannerDetails.data.bannerUrl}</p>
+                        {bannerDetails.id ? (
+                          // Old banner structure
+                          <>
+                            <p><span className="font-medium">ID:</span> {bannerDetails.id}</p>
+                            <p><span className="font-medium">Name:</span> {bannerDetails.data.bannerName}</p>
+                            <p><span className="font-medium">URL:</span> {bannerDetails.data.bannerUrl}</p>
+                          </>
+                        ) : (
+                          // New nested banner structure
+                          <>
+                            <p><span className="font-medium">Banner ID:</span> {bannerDetails.bannerId}</p>
+                            <p><span className="font-medium">Wallpaper ID:</span> {bannerDetails.wallpaperId}</p>
+                            <p><span className="font-medium">App:</span> {bannerDetails.appName}</p>
+                            <p><span className="font-medium">Name:</span> {bannerDetails.data.bannerName}</p>
+                            <p><span className="font-medium">URL:</span> {bannerDetails.data.bannerUrl}</p>
+                          </>
+                        )}
                       </div>
                     </div>
                   )}
