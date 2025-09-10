@@ -15,15 +15,21 @@ interface WallpaperForm {
   source: string;
   exclusive: boolean;
   addAsBanner: boolean;
+  bannerApps: string[];
   depthEffect?: boolean;
   selectedCategories: string[];
   selectedDeviceSeries: string[];
   selectedIosVersion?: string;
+  appleSelectionType?: 'devices' | 'iosVersions';
   launchYear?: string;
   category?: string;
   subCategory?: string;
   series?: string;
   sameAsCategory?: boolean;
+  sameSource?: boolean;
+  sameWallpaperName?: boolean;
+  sameWallpaperNameBelow?: boolean;
+  sameLaunchYear?: boolean;
 }
 
 interface WallpaperFormItemProps {
@@ -42,6 +48,13 @@ interface WallpaperFormItemProps {
   getSelectedMainCategory: () => string;
   getSelectedBrandCategory: () => string;
   showCategories?: boolean;
+  onAddMultipleWallpapers?: (urls: string[]) => void;
+  onClearUploads?: (clearFn: () => void) => void;
+  totalWallpapers?: number;
+  selectedCategory?: string;
+  selectedSubcategory?: string;
+  onThumbnailLoad?: () => void;
+  onThumbnailError?: () => void;
 }
 
 const WallpaperFormItem: React.FC<WallpaperFormItemProps> = ({
@@ -59,7 +72,14 @@ const WallpaperFormItem: React.FC<WallpaperFormItemProps> = ({
   onIosVersionChange,
   getSelectedMainCategory,
   getSelectedBrandCategory,
-  showCategories = true
+  showCategories = true,
+  onAddMultipleWallpapers,
+  onClearUploads,
+  totalWallpapers,
+  selectedCategory,
+  selectedSubcategory,
+  onThumbnailLoad,
+  onThumbnailError
 }) => {
   const isMobile = useIsMobile();
   // Check if a depth effect category is selected
@@ -110,15 +130,27 @@ const WallpaperFormItem: React.FC<WallpaperFormItemProps> = ({
             source={form.source}
             exclusive={form.exclusive}
             addAsBanner={form.addAsBanner}
+            bannerApps={form.bannerApps}
             depthEffect={form.depthEffect || hasDepthEffectCategory}
             sameAsCategory={form.sameAsCategory}
+            sameSource={form.sameSource}
+            sameWallpaperName={form.sameWallpaperName}
+            sameWallpaperNameBelow={form.sameWallpaperNameBelow}
+            sameLaunchYear={form.sameLaunchYear}
             launchYear={form.launchYear}
             showLaunchYear={showLaunchYear}
             onChange={(field, value) => onFieldChange(field as keyof WallpaperForm, value)}
+            onAddMultipleWallpapers={onAddMultipleWallpapers}
+            onClearUploads={onClearUploads}
+            selectedCategory={selectedCategory}
+            selectedSubcategory={selectedSubcategory}
+            totalWallpapers={totalWallpapers}
+            onThumbnailLoad={onThumbnailLoad}
+            onThumbnailError={onThumbnailError}
           />
           
-          {/* Only show categories and device selectors if it's not using same category settings and it's the first wallpaper or showCategories is true */}
-          {!form.sameAsCategory && (index === 0 || showCategories) && (
+          {/* Only show categories and device selectors for the first wallpaper */}
+          {index === 0 && (
             <div className="space-y-6">
               <CategorySelector
                 categories={categories}
@@ -141,16 +173,22 @@ const WallpaperFormItem: React.FC<WallpaperFormItemProps> = ({
                     devices={devices}
                     selectedDeviceSeries={form.selectedDeviceSeries}
                     selectedIosVersion={form.selectedIosVersion}
+                    appleSelectionType={form.appleSelectionType}
                     onDeviceSeriesChange={onDeviceSeriesChange}
                     onIosVersionChange={onIosVersionChange}
+                    onAppleSelectionTypeChange={
+                      brandCategory === 'Apple' 
+                        ? (type: 'devices' | 'iosVersions') => onFieldChange('appleSelectionType', type)
+                        : undefined
+                    }
                     formId={`${index}`}
                   />
                 ))}
             </div>
           )}
           
-          {/* If sameAsCategory is true, add a simple message explaining that categories are inherited */}
-          {form.sameAsCategory && index > 0 && (
+          {/* Message for additional wallpapers explaining they inherit categories from Wallpaper 1 */}
+          {index > 0 && (
             <div className="bg-gray-50 dark:bg-slate-800 p-4 rounded-md text-sm text-gray-600 dark:text-gray-300">
               <p className="font-medium mb-2">Using settings from Wallpaper 1</p>
               <p>Categories and device selections will be automatically applied from Wallpaper 1.</p>

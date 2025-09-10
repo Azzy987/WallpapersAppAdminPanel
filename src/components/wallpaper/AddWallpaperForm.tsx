@@ -3,12 +3,15 @@ import {
   addTrendingWallpaperWithId,
   addBrandWallpaperWithId,
   addBannerWithId,
+  addBannerToMultipleApps,
   getCategories, 
   getDevices,
   checkDuplicateWallpaper,
   Category,
   Device,
-  samsungDeviceYearMap
+  samsungDeviceYearMap,
+  iphoneDeviceYearMap,
+  oneplusDeviceYearMap
 } from '@/lib/firebase';
 import { toast } from 'sonner';
 import CategoryDialog from './CategoryDialog';
@@ -25,15 +28,21 @@ interface WallpaperForm {
   source: string;
   exclusive: boolean;
   addAsBanner: boolean;
+  bannerApps: string[];
   depthEffect: boolean;
   selectedCategories: string[];
   selectedDeviceSeries: string[];
   selectedIosVersion?: string;
+  appleSelectionType?: 'devices' | 'iosVersions';
   launchYear?: string;
   category?: string;
   subCategory?: string;
   series?: string;
   sameAsCategory?: boolean;
+  sameSource?: boolean;
+  sameWallpaperName?: boolean;
+  sameWallpaperNameBelow?: boolean;
+  sameLaunchYear?: boolean;
 }
 
 const initialFormState: WallpaperForm = {
@@ -42,13 +51,19 @@ const initialFormState: WallpaperForm = {
   source: 'Official',
   exclusive: false,
   addAsBanner: false,
+  bannerApps: [],
   depthEffect: false,
   selectedCategories: [],
   selectedDeviceSeries: [],
+  appleSelectionType: 'devices',
   category: '',
   subCategory: '',
   series: '',
-  sameAsCategory: false
+  sameAsCategory: false,
+  sameSource: false,
+  sameWallpaperName: false,
+  sameWallpaperNameBelow: false,
+  sameLaunchYear: false
 };
 
 const appleDeviceYearMap: { [key: string]: number } = {
@@ -90,7 +105,12 @@ const AddWallpaperForm: React.FC = () => {
   const [useSharedCategories, setUseSharedCategories] = useState(false);
   const [wallpaperCount, setWallpaperCount] = useState<number>(3);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [clearUploadsFunction, setClearUploadsFunction] = useState<(() => void) | null>(null);
   const [showProgressOverlay, setShowProgressOverlay] = useState<boolean>(false);
+  const [visibleForms, setVisibleForms] = useState<number>(10); // Start with 10 visible forms
+  const [isProgressiveLoading, setIsProgressiveLoading] = useState<boolean>(false);
+  const [thumbnailsLoaded, setThumbnailsLoaded] = useState<number>(0);
+  const [thumbnailsFailed, setThumbnailsFailed] = useState<number>(0);
   const isMobile = useIsMobile();
   
   useEffect(() => {
@@ -106,13 +126,68 @@ const AddWallpaperForm: React.FC = () => {
     
     fetchCategories();
   }, []);
+
+  // Progressive form loading for large batches
+  useEffect(() => {
+    if (wallpaperForms.length > 20) {
+      if (visibleForms < wallpaperForms.length) {
+        setIsProgressiveLoading(true);
+        
+        const loadMoreForms = () => {
+          const remainingForms = wallpaperForms.length - visibleForms;
+          const batchSize = Math.min(5, remainingForms); // Load 5 forms at a time
+          
+          setTimeout(() => {
+            setVisibleForms(prev => {
+              const newVisible = Math.min(prev + batchSize, wallpaperForms.length);
+              
+              // Continue loading if there are more forms
+              if (newVisible < wallpaperForms.length) {
+                requestAnimationFrame(loadMoreForms);
+              } else {
+                setIsProgressiveLoading(false);
+              }
+              
+              return newVisible;
+            });
+          }, 50); // Smaller delay for smoother loading
+        };
+        
+        requestAnimationFrame(loadMoreForms);
+      } else {
+        setIsProgressiveLoading(false);
+      }
+    } else {
+      setVisibleForms(wallpaperForms.length);
+      setIsProgressiveLoading(false);
+    }
+  }, [wallpaperForms.length]); // Remove visibleForms dependency to prevent infinite loop
   
   const getUrlWithL = (url: string): string => {
-    const lastDotIndex = url.lastIndexOf('.');
-    if (lastDotIndex !== -1) {
-      return `${url.substring(0, lastDotIndex)}l${url.substring(lastDotIndex)}`;
+    try {
+      // Check if URL already contains the CloudFront domain and transformation pattern
+      if (url.includes('d1wqpnbk3wcub7.cloudfront.net') && url.includes('/fit-in/360x640/')) {
+        return url;
+      }
+      
+      // If it's a CloudFront URL but doesn't have the transformation, add it
+      if (url.includes('d1wqpnbk3wcub7.cloudfront.net')) {
+        const baseUrl = 'https://d1wqpnbk3wcub7.cloudfront.net';
+        const pathIndex = url.indexOf('cloudfront.net/') + 'cloudfront.net/'.length;
+        const imagePath = url.substring(pathIndex);
+        return `${baseUrl}/fit-in/360x640/${imagePath}`;
+      }
+      
+      // For other URLs (like imgur), keep the original logic
+      const lastDotIndex = url.lastIndexOf('.');
+      if (lastDotIndex !== -1) {
+        return `${url.substring(0, lastDotIndex)}l${url.substring(lastDotIndex)}`;
+      }
+      return url;
+    } catch (error) {
+      console.error('Error generating thumbnail URL:', error);
+      return url; // Return original URL as fallback
     }
-    return url;
   };
   
   const handleAddSameCategoryWallpaper = (count: number = 1) => {
@@ -157,6 +232,131 @@ const AddWallpaperForm: React.FC = () => {
       prevForms.filter((_, i) => i !== index)
     );
   };
+
+  // Handle multiple wallpaper creation from S3 uploads
+  const handleAddMultipleWallpapers = (urls: string[]) => {
+    console.log('🚀 Creating wallpaper forms for URLs:', urls);
+    console.log(`📊 Creating ${urls.length} wallpaper forms`);
+    
+    const newForms = urls.map((url, index) => {
+      console.log(`📝 Processing wallpaper #${index + 1}: ${url}`);
+      // Determine the wallpaper name based on category selection
+      const determineWallpaperName = (url: string): string => {
+        const firstForm = wallpaperForms[0];
+        const brandCategory = getSelectedBrandCategory(firstForm);
+        
+        // For Samsung, Apple, and OnePlus categories, use series name if available, otherwise extract from filename
+        if ((brandCategory === 'Samsung' || brandCategory === 'Apple' || brandCategory === 'OnePlus') && firstForm?.series) {
+          console.log(`📝 Using ${brandCategory} series name for wallpaper ${index + 1}: "${firstForm.series}"`);
+          return firstForm.series;
+        }
+        
+        // For other categories or no series selected, extract from filename
+        const extractWallpaperName = (url: string): string => {
+          // Extract filename from URL
+          const urlParts = url.split('/');
+          const filename = urlParts[urlParts.length - 1];
+          
+          // Remove file extension
+          let name = filename.replace(/\.[^/.]+$/, '');
+          
+          // Remove resolution patterns (e.g., 4k, 2160x3840, 1080p, etc.)
+          name = name.replace(/\d{3,4}x\d{3,4}/g, ''); // Remove dimensions like 2160x3840
+          name = name.replace(/[_-]?\d{1,4}[kK]/g, ''); // Remove 4k, 1080p, etc.
+          name = name.replace(/[_-]?\d{1,4}[pP]/g, ''); // Remove 1080p, 720p, etc.
+          
+          // Remove common suffixes and numbers at the end
+          name = name.replace(/[_-]?\d{6,}$/g, ''); // Remove long numbers like 140741
+          name = name.replace(/[_-]?\d{1,2}$/g, ''); // Remove short numbers like -4, -12
+          
+          // Remove common file suffixes
+          name = name.replace(/[_-]?(wallpaper|bg|background|img|image|pic|picture|art|design|hd|ultra|wv|uw|wide|ultrawide|vertical|portrait|landscape)/gi, '');
+          
+          // Clean up multiple dashes/underscores and trim
+          name = name.replace(/[_-]+/g, '-').replace(/^-|-$/g, '');
+          
+          // Capitalize first letter of each word
+          name = name.split('-').map(word => 
+            word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+          ).join(' ');
+          
+          // If name is empty after cleaning, use original filename
+          if (!name || name.trim() === '') {
+            return filename.replace(/\.[^/.]+$/, '');
+          }
+          
+          return name.trim();
+        };
+        
+        const extractedName = extractWallpaperName(url);
+        console.log(`📝 Extracted name from filename for wallpaper ${index + 1}: "${extractedName}" from URL: ${url}`);
+        return extractedName;
+      };
+      
+      const determinedName = determineWallpaperName(url);
+      
+      const newForm = {
+        ...initialFormState,
+        imageUrl: url,
+        wallpaperName: determinedName,
+        sameAsCategory: wallpaperForms[0]?.sameAsCategory || false,
+        sameWallpaperName: wallpaperForms[0]?.sameWallpaperName || false,
+        sameLaunchYear: wallpaperForms[0]?.sameLaunchYear || false,
+        selectedCategories: wallpaperForms[0]?.selectedCategories || [],
+        selectedDeviceSeries: wallpaperForms[0]?.selectedDeviceSeries || [],
+        category: wallpaperForms[0]?.category || '',
+        subCategory: wallpaperForms[0]?.subCategory || '',
+        series: wallpaperForms[0]?.series || '',
+        depthEffect: wallpaperForms[0]?.depthEffect || false,
+        source: wallpaperForms[0]?.source || 'Official',
+        exclusive: wallpaperForms[0]?.exclusive || false,
+        addAsBanner: wallpaperForms[0]?.addAsBanner || false,
+        selectedIosVersion: wallpaperForms[0]?.selectedIosVersion || '',
+        launchYear: wallpaperForms[0]?.launchYear || ''
+      };
+      
+      console.log(`✅ Created form #${index + 1}:`, {
+        imageUrl: newForm.imageUrl,
+        wallpaperName: newForm.wallpaperName,
+        urlValid: newForm.imageUrl.startsWith('http')
+      });
+      
+      return newForm;
+    });
+    
+    console.log(`🎯 Setting ${newForms.length} wallpaper forms`);
+    setWallpaperForms(newForms);
+    
+    // Reset progressive loading and thumbnail counters
+    setThumbnailsLoaded(0);
+    setThumbnailsFailed(0);
+    
+    if (newForms.length > 20) {
+      setVisibleForms(10); // Start with 10 visible forms for large batches
+      toast.success(`📊 Created ${newForms.length} wallpaper forms!`, { duration: 3000 });
+      toast.info(`🕐 Thumbnails will load in batches of 3 (800ms delays) to prevent CloudFront overload`, { duration: 6000 });
+    } else if (newForms.length > 10) {
+      setVisibleForms(newForms.length);
+      toast.success(`📊 Created ${newForms.length} wallpaper forms!`, { duration: 2000 });
+      toast.info(`🕐 Thumbnails loading progressively to prevent server overload`, { duration: 3000 });
+    } else {
+      setVisibleForms(newForms.length);
+      toast.success(`✅ Created ${newForms.length} wallpaper forms!`);
+    }
+    
+    // Provide user guidance for large batches
+    if (newForms.length > 25) {
+      setTimeout(() => {
+        toast.info(`💡 Large batch detected! Thumbnails are loading in small groups to prevent CloudFront rate limiting. Please wait for all images to load.`, { 
+          duration: 8000,
+          action: {
+            label: 'Got it',
+            onClick: () => console.log('User acknowledged large batch guidance')
+          }
+        });
+      }, 2000);
+    }
+  };
   
   const handleChange = (index: number, field: keyof WallpaperForm, value: any) => {
     setWallpaperForms(prevForms => {
@@ -178,10 +378,11 @@ const AddWallpaperForm: React.FC = () => {
       
       if (index === 0) {
         if (field === 'selectedCategories' || field === 'source' || 
-            field === 'exclusive' || field === 'addAsBanner' || 
-            field === 'selectedDeviceSeries' || field === 'selectedIosVersion' ||
+            field === 'exclusive' || field === 'addAsBanner' || field === 'bannerApps' ||
+            field === 'selectedDeviceSeries' || field === 'selectedIosVersion' || field === 'appleSelectionType' ||
             field === 'category' || field === 'series' || field === 'depthEffect' ||
-            field === 'launchYear' || field === 'subCategory' || field === 'wallpaperName') {
+            field === 'launchYear' || field === 'subCategory' || field === 'sameWallpaperName' ||
+            field === 'sameWallpaperNameBelow' || field === 'sameLaunchYear') {
           updatedForms.forEach((form, i) => {
             if (i !== 0 && form.sameAsCategory) {
               updatedForms[i] = {
@@ -191,6 +392,138 @@ const AddWallpaperForm: React.FC = () => {
             }
           });
         }
+        
+        // Special handling for wallpaper name - propagate if sameWallpaperName is checked
+        if (field === 'wallpaperName') {
+          updatedForms.forEach((form, i) => {
+            if (i !== 0 && (form.sameAsCategory || updatedForms[0].sameWallpaperName)) {
+              updatedForms[i] = {
+                ...updatedForms[i],
+                wallpaperName: value
+              };
+            }
+          });
+        }
+        
+        // Special handling for launch year - propagate if sameLaunchYear is checked
+        if (field === 'launchYear') {
+          updatedForms.forEach((form, i) => {
+            if (i !== 0 && (form.sameAsCategory || updatedForms[0].sameLaunchYear)) {
+              updatedForms[i] = {
+                ...updatedForms[i],
+                launchYear: value
+              };
+            }
+          });
+        }
+        
+        // Special handling for sameAsCategory checkbox
+        if (field === 'sameAsCategory' && value === true) {
+          // If Samsung, Apple, or OnePlus category and series selected, set wallpaper name to series name
+          const brandCategory = getSelectedBrandCategory(updatedForms[0]);
+          if ((brandCategory === 'Samsung' || brandCategory === 'Apple' || brandCategory === 'OnePlus') && updatedForms[0].series) {
+            updatedForms[0].wallpaperName = updatedForms[0].series;
+            
+            // Also update all other forms that have sameAsCategory checked
+            updatedForms.forEach((form, i) => {
+              if (i !== 0 && form.sameAsCategory) {
+                updatedForms[i] = {
+                  ...updatedForms[i],
+                  wallpaperName: updatedForms[0].series
+                };
+              }
+            });
+          }
+        }
+      }
+
+      // Handle sameSource functionality
+      if (field === 'sameSource') {
+        if (value === true) {
+          // When checking "Same source in all wallpapers"
+          const sourceValue = updatedForms[index].source;
+          updatedForms.forEach((form, i) => {
+            if (i !== index) {
+              updatedForms[i] = {
+                ...updatedForms[i],
+                source: sourceValue
+              };
+            }
+          });
+        } else {
+          // When unchecking "Same source in all wallpapers", reset all other sources to "Official"
+          updatedForms.forEach((form, i) => {
+            if (i !== index) {
+              updatedForms[i] = {
+                ...updatedForms[i],
+                source: 'Official'
+              };
+            }
+          });
+        }
+      }
+
+      // Handle sameWallpaperName functionality
+      if (field === 'sameWallpaperName') {
+        if (value === true) {
+          // When checking "Same wallpaper name in all wallpapers"
+          const wallpaperNameValue = updatedForms[index].wallpaperName;
+          updatedForms.forEach((form, i) => {
+            if (i !== index) {
+              updatedForms[i] = {
+                ...updatedForms[i],
+                wallpaperName: wallpaperNameValue
+              };
+            }
+          });
+        }
+        // When unchecking, don't reset other wallpaper names as they might be intentionally different
+      }
+
+      // Handle sameWallpaperNameBelow functionality
+      if (field === 'sameWallpaperNameBelow') {
+        if (value === true) {
+          // When checking "Same wallpaper name for below items"
+          const wallpaperNameValue = updatedForms[index].wallpaperName;
+          updatedForms.forEach((form, i) => {
+            if (i > index) { // Only apply to items BELOW the current index
+              updatedForms[i] = {
+                ...updatedForms[i],
+                wallpaperName: wallpaperNameValue
+              };
+            }
+          });
+        }
+        // When unchecking, don't reset other wallpaper names as they might be intentionally different
+      }
+
+      // Handle sameLaunchYear functionality
+      if (field === 'sameLaunchYear') {
+        if (value === true) {
+          // When checking "Same launch year in all wallpapers"
+          const launchYearValue = updatedForms[index].launchYear;
+          updatedForms.forEach((form, i) => {
+            if (i !== index) {
+              updatedForms[i] = {
+                ...updatedForms[i],
+                launchYear: launchYearValue
+              };
+            }
+          });
+        }
+        // When unchecking, don't reset other launch years as they might be intentionally different
+      }
+
+      // Handle wallpaper name propagation for sameWallpaperNameBelow (works for any form, not just index 0)
+      if (field === 'wallpaperName' && updatedForms[index].sameWallpaperNameBelow) {
+        updatedForms.forEach((form, i) => {
+          if (i > index) { // Only apply to items BELOW the current index
+            updatedForms[i] = {
+              ...updatedForms[i],
+              wallpaperName: value
+            };
+          }
+        });
       }
       
       return updatedForms;
@@ -254,6 +587,11 @@ const AddWallpaperForm: React.FC = () => {
         if (year) {
           form.launchYear = year;
         }
+        
+        // For Samsung, Apple, and OnePlus, always auto-set wallpaper name to device series
+        if (brand === 'Samsung' || brand === 'Apple' || brand === 'OnePlus') {
+          form.wallpaperName = deviceSeries;
+        }
       } else {
         form.selectedDeviceSeries = [];
         form.series = '';
@@ -271,6 +609,11 @@ const AddWallpaperForm: React.FC = () => {
               series: updatedForms[0].series,
               launchYear: updatedForms[0].launchYear
             };
+            
+            // For Samsung, Apple, and OnePlus, also update wallpaper name to series name
+            if ((brand === 'Samsung' || brand === 'Apple' || brand === 'OnePlus') && updatedForms[0].series) {
+              updatedForms[i].wallpaperName = updatedForms[0].series;
+            }
           }
         });
       }
@@ -287,9 +630,9 @@ const AddWallpaperForm: React.FC = () => {
       if (brand === 'Samsung') {
         year = samsungDeviceYearMap[deviceSeries] || currentYear;
       } else if (brand === 'Apple') {
-        year = appleDeviceYearMap[deviceSeries] || currentYear;
-      } else if (brand === 'Google') {
-        year = googleDeviceYearMap[deviceSeries] || currentYear;
+        year = iphoneDeviceYearMap[deviceSeries] || currentYear;
+      } else if (brand === 'OnePlus') {
+        year = oneplusDeviceYearMap[deviceSeries] || currentYear;
       } else {
         year = currentYear;
       }
@@ -414,51 +757,45 @@ const AddWallpaperForm: React.FC = () => {
     );
     
     for (const brand of brandCategories) {
-      if (devices[brand] && form.selectedDeviceSeries.length === 0) {
-        toast.error(`At least one device series must be selected for ${brand} wallpapers`);
-        return false;
-      }
-      
-      if (brand === 'Apple' && !form.selectedIosVersion && devices[brand]?.iosVersions?.length > 0) {
-        toast.error('Please select an iOS version for Apple wallpapers');
-        return false;
+      // Handle Apple validation based on selection type
+      if (brand === 'Apple') {
+        if (form.appleSelectionType === 'iosVersions') {
+          // When iOS versions is selected, validate iOS version
+          if (!form.selectedIosVersion && devices[brand]?.iosVersions?.length > 0) {
+            toast.error('Please select an iOS version for Apple wallpapers');
+            return false;
+          }
+        } else {
+          // When devices is selected (default), validate device series
+          if (devices[brand] && form.selectedDeviceSeries.length === 0) {
+            toast.error('Please select an iPhone device for Apple wallpapers');
+            return false;
+          }
+        }
+      } else {
+        // For non-Apple brands, always validate device series
+        if (devices[brand] && form.selectedDeviceSeries.length === 0) {
+          toast.error(`At least one device series must be selected for ${brand} wallpapers`);
+          return false;
+        }
       }
     }
     
     return true;
   };
   
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setShowProgressOverlay(true);
-    setUploadProgress(0);
+  // Process wallpapers in batches to prevent memory issues and improve performance
+  const processBatch = async (batch: WallpaperForm[], batchIndex: number, totalBatches: number): Promise<void> => {
+    const batchSize = batch.length;
+    let batchCompleted = 0;
     
-    try {
-      for (const form of wallpaperForms) {
-        if (!validateForm(form)) {
-          setLoading(false);
-          setShowProgressOverlay(false);
-          return;
-        }
-      }
+    // Process each wallpaper in the batch
+    for (const form of batch) {
+      const uniqueId = crypto.randomUUID();
+      const createdWallpaperIds: string[] = []; // Track created wallpaper IDs for banner creation
       
-      for (const form of wallpaperForms) {
-        const isDuplicate = await checkDuplicateWallpaper(form.imageUrl);
-        if (isDuplicate) {
-          toast.error(`Wallpaper with URL "${form.imageUrl}" already exists`);
-          setLoading(false);
-          setShowProgressOverlay(false);
-          return;
-        }
-      }
-      
-      const totalOperations = wallpaperForms.length;
-      let completedOperations = 0;
-      
-      for (const form of wallpaperForms) {
-        const uniqueId = crypto.randomUUID();
-        
+      try {
+        // Handle main/trending categories
         const mainCategory = form.selectedCategories.find(cat => 
           categories.find(c => c.categoryName === cat && c.categoryType === 'main')
         );
@@ -478,16 +815,38 @@ const AddWallpaperForm: React.FC = () => {
           };
           
           await addTrendingWallpaperWithId(uniqueId, trendingWallpaperData);
+          createdWallpaperIds.push(uniqueId); // Track the trending wallpaper ID
         }
         
+        // Handle brand categories
         const brandCategories = form.selectedCategories.filter(cat => 
           categories.find(c => c.categoryName === cat && c.categoryType === 'brand')
         );
         
         for (const brand of brandCategories) {
-          if (devices[brand] && form.selectedDeviceSeries.length > 0) {
+          // Handle Apple based on selection type
+          if (brand === 'Apple' && form.appleSelectionType === 'iosVersions') {
+            // For iOS versions, create a single wallpaper with iOS version info
+            const launchYearValue = form.launchYear ? parseInt(form.launchYear, 10) : '';
+            
+            const brandWallpaperData: any = {
+              wallpaperName: form.wallpaperName,
+              imageUrl: form.imageUrl,
+              thumbnail: getUrlWithL(form.imageUrl),
+              series: form.selectedIosVersion || 'iOS Version',
+              launchYear: launchYearValue,
+              iosVersion: form.selectedIosVersion,
+              views: 0,
+              downloads: 0
+            };
+            
+            const iosUniqueId = `${uniqueId}-${form.selectedIosVersion}`;
+            await addBrandWallpaperWithId(brand, iosUniqueId, brandWallpaperData);
+            createdWallpaperIds.push(iosUniqueId); // Track the iOS wallpaper ID
+          } else if (devices[brand] && form.selectedDeviceSeries.length > 0) {
+            // For device series (Apple with devices selected, or other brands)
             for (const deviceSeries of form.selectedDeviceSeries) {
-              const launchYearValue = brand === 'Samsung' && form.launchYear
+              const launchYearValue = (brand === 'Samsung' || brand === 'Apple' || brand === 'OnePlus') && form.launchYear
                 ? parseInt(form.launchYear, 10)
                 : form.launchYear || '';
               
@@ -501,15 +860,12 @@ const AddWallpaperForm: React.FC = () => {
                 downloads: 0
               };
               
-              if (brand === 'Apple' && form.selectedIosVersion) {
-                brandWallpaperData.iosVersion = form.selectedIosVersion;
-              }
-              
               const deviceUniqueId = `${uniqueId}-${deviceSeries}`;
               await addBrandWallpaperWithId(brand, deviceUniqueId, brandWallpaperData);
+              createdWallpaperIds.push(deviceUniqueId); // Track the device wallpaper ID
             }
           } else {
-            const launchYearValue = brand === 'Samsung' && form.launchYear
+            const launchYearValue = (brand === 'Samsung' || brand === 'Apple' || brand === 'OnePlus') && form.launchYear
               ? parseInt(form.launchYear, 10)
               : form.launchYear || '';
               
@@ -525,36 +881,148 @@ const AddWallpaperForm: React.FC = () => {
             
             const brandUniqueId = `${uniqueId}-${brand}`;
             await addBrandWallpaperWithId(brand, brandUniqueId, brandWallpaperData);
+            createdWallpaperIds.push(brandUniqueId); // Track the brand wallpaper ID
           }
         }
         
-        if (form.addAsBanner) {
-          const getUrlWithH = (url: string): string => {
-            const lastDotIndex = url.lastIndexOf('.');
-            if (lastDotIndex !== -1) {
-              return `${url.substring(0, lastDotIndex)}h${url.substring(lastDotIndex)}`;
-            }
+        // Handle banner creation with nested structure
+        if (form.addAsBanner && form.bannerApps.length > 0 && createdWallpaperIds.length > 0) {
+          const getBannerUrl = (url: string): string => {
+            console.log('🖼️ [BANNER] Using original imageUrl as bannerUrl:', url);
+            // Return the original imageUrl as-is without any CloudFront transformations
             return url;
           };
           
-          await addBannerWithId(uniqueId, {
+          const bannerUrl = getBannerUrl(form.imageUrl);
+          const bannerData = {
             bannerName: form.wallpaperName,
-            bannerUrl: getUrlWithH(form.imageUrl)
-          });
+            bannerUrl: bannerUrl
+          };
+          
+          console.log('🖼️ [BANNER] Creating nested banners for apps:', form.bannerApps);
+          console.log('🖼️ [BANNER] Banner data:', bannerData);
+          console.log('🖼️ [BANNER] Created wallpaper IDs:', createdWallpaperIds);
+          
+          // Create banner for each created wallpaper ID to ensure ID matching
+          for (const wallpaperId of createdWallpaperIds) {
+            const bannerResult = await addBannerToMultipleApps(form.bannerApps, wallpaperId, bannerData);
+            console.log(`🖼️ [BANNER] Nested banner created for wallpaper ${wallpaperId}:`, bannerResult);
+          }
         }
         
-        completedOperations++;
-        setUploadProgress(Math.round((completedOperations / totalOperations) * 100));
+        batchCompleted++;
+        
+        // Update progress based on both batch and individual wallpaper progress
+        const batchProgress = (batchIndex / totalBatches) * 100;
+        const withinBatchProgress = (batchCompleted / batchSize) * (100 / totalBatches);
+        const totalProgress = Math.min(99, Math.round(batchProgress + withinBatchProgress));
+        setUploadProgress(totalProgress);
+        
+        // Add a small delay to prevent overwhelming the database
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+      } catch (error) {
+        console.error(`Error processing wallpaper ${form.wallpaperName}:`, error);
+        throw new Error(`Failed to process wallpaper: ${form.wallpaperName}`);
+      }
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setShowProgressOverlay(true);
+    setUploadProgress(0);
+    
+    try {
+      // Validate all forms first
+      for (const form of wallpaperForms) {
+        if (!validateForm(form)) {
+          setLoading(false);
+          setShowProgressOverlay(false);
+          return;
+        }
       }
       
-      toast.success('Wallpaper(s) added successfully');
+      // Check for duplicates in smaller batches to avoid memory issues
+      const DUPLICATE_CHECK_BATCH_SIZE = 10;
+      for (let i = 0; i < wallpaperForms.length; i += DUPLICATE_CHECK_BATCH_SIZE) {
+        const batch = wallpaperForms.slice(i, i + DUPLICATE_CHECK_BATCH_SIZE);
+        
+        const duplicateChecks = await Promise.allSettled(
+          batch.map(form => checkDuplicateWallpaper(form.imageUrl))
+        );
+        
+        for (let j = 0; j < duplicateChecks.length; j++) {
+          const result = duplicateChecks[j];
+          if (result.status === 'fulfilled' && result.value) {
+            const form = batch[j];
+            toast.error(`Wallpaper "${form.wallpaperName}" already exists`);
+            setLoading(false);
+            setShowProgressOverlay(false);
+            return;
+          } else if (result.status === 'rejected') {
+            console.error('Error checking duplicate:', result.reason);
+            toast.warning('Could not verify all duplicates, proceeding with upload');
+          }
+        }
+        
+        // Small delay between duplicate check batches
+        if (i + DUPLICATE_CHECK_BATCH_SIZE < wallpaperForms.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
       
+      // Ultra-aggressive batching to prevent Firebase rate limits and memory issues
+      const BATCH_SIZE = wallpaperForms.length > 80 ? 3 : wallpaperForms.length > 50 ? 4 : wallpaperForms.length > 30 ? 5 : 10;
+      const batches = [];
+      
+      for (let i = 0; i < wallpaperForms.length; i += BATCH_SIZE) {
+        batches.push(wallpaperForms.slice(i, i + BATCH_SIZE));
+      }
+      
+      console.log(`Processing ${wallpaperForms.length} wallpapers in ${batches.length} batches of size ${BATCH_SIZE}`);
+      
+      // Process each batch sequentially
+      for (let i = 0; i < batches.length; i++) {
+        console.log(`Processing batch ${i + 1} of ${batches.length}`);
+        await processBatch(batches[i], i, batches.length);
+        
+        // Progressive delays for large uploads to prevent Firebase rate limits
+        if (i < batches.length - 1) {
+          const delay = wallpaperForms.length > 80 ? 1000 : wallpaperForms.length > 50 ? 800 : wallpaperForms.length > 30 ? 500 : 200;
+          console.log(`⏳ Waiting ${delay}ms before next Firebase batch...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+      
+      setUploadProgress(100);
+      toast.success(`Successfully added ${wallpaperForms.length} wallpaper(s) to Firebase!`);
+      
+      // Clear all form state
       setWallpaperForms([{ ...initialFormState }]);
       setUseSharedCategories(false);
       setShowBrandOptions({});
+      
+      // Clear S3 uploaded files with a small delay to ensure UI updates
+      setTimeout(() => {
+        if (clearUploadsFunction) {
+          try {
+            clearUploadsFunction();
+            toast.info('🗂️ S3 upload section cleared - ready for new uploads!');
+          } catch (error) {
+            console.error('❌ Error clearing S3 uploads:', error);
+          }
+        }
+      }, 500);
+      
     } catch (error) {
-      console.error('Error adding wallpaper:', error);
-      toast.error('Failed to add wallpaper');
+      console.error('Error in batch upload:', error);
+      toast.error(
+        error instanceof Error 
+          ? `Upload failed: ${error.message}` 
+          : 'Failed to add wallpapers. Please try again with fewer images.'
+      );
     } finally {
       setLoading(false);
       setShowProgressOverlay(false);
@@ -563,15 +1031,26 @@ const AddWallpaperForm: React.FC = () => {
   };
   
   const getSelectedMainCategory = (form: WallpaperForm) => {
-    return form.selectedCategories.find(cat => 
+    console.log('getSelectedMainCategory called with:', { 
+      selectedCategories: form.selectedCategories, 
+      categories: categories 
+    });
+    
+    const result = form.selectedCategories.find(cat => 
       categories.find(c => c.categoryName === cat && c.categoryType === 'main')
     ) || '';
+    
+    console.log('getSelectedMainCategory result:', result);
+    return result;
   };
   
   const getSelectedBrandCategory = (form: WallpaperForm) => {
-    return form.selectedCategories.find(cat => 
+    const result = form.selectedCategories.find(cat => 
       categories.find(c => c.categoryName === cat && c.categoryType === 'brand')
     ) || '';
+    
+    console.log('getSelectedBrandCategory result:', result);
+    return result;
   };
   
   return (
@@ -583,7 +1062,51 @@ const AddWallpaperForm: React.FC = () => {
         setWallpaperCount={setWallpaperCount}
       />
       
-      {wallpaperForms.map((form, index) => (
+      {/* Thumbnail Loading Progress Summary */}
+      {wallpaperForms.length > 10 && (
+        <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="relative">
+                <Loader className="w-5 h-5 text-blue-600 animate-spin" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                </div>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                  Thumbnail Loading Progress
+                </h3>
+                <p className="text-xs text-blue-700 dark:text-blue-300">
+                  {thumbnailsLoaded + thumbnailsFailed} / {wallpaperForms.length} processed
+                  {thumbnailsFailed > 0 && (
+                    <span className="ml-2 text-red-600 dark:text-red-400">
+                      ({thumbnailsFailed} failed)
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-lg font-bold text-blue-900 dark:text-blue-100">
+                {Math.round((thumbnailsLoaded / wallpaperForms.length) * 100)}%
+              </div>
+              <div className="text-xs text-blue-700 dark:text-blue-300">
+                {wallpaperForms.length - (thumbnailsLoaded + thumbnailsFailed)} remaining
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 bg-blue-200 dark:bg-blue-800 rounded-full h-2">
+            <div 
+              className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${(thumbnailsLoaded / wallpaperForms.length) * 100}%` }}
+            ></div>
+          </div>
+        </div>
+      )}
+      
+      {/* Render only visible forms to prevent UI blocking */}
+      {wallpaperForms.slice(0, visibleForms).map((form, index) => (
         <WallpaperFormItem
           key={index}
           form={form}
@@ -603,8 +1126,61 @@ const AddWallpaperForm: React.FC = () => {
           getSelectedMainCategory={() => getSelectedMainCategory(form)}
           getSelectedBrandCategory={() => getSelectedBrandCategory(form)}
           showCategories={true}
+          onAddMultipleWallpapers={index === 0 ? handleAddMultipleWallpapers : undefined}
+          onClearUploads={index === 0 ? setClearUploadsFunction : undefined}
+          onThumbnailLoad={() => setThumbnailsLoaded(prev => prev + 1)}
+          onThumbnailError={() => setThumbnailsFailed(prev => prev + 1)}
+          selectedCategory={(() => {
+            const brandCategory = getSelectedBrandCategory(form);
+            const mainCategory = getSelectedMainCategory(form);
+            const fallbackCategory = form.selectedCategories[0] || '';
+            const result = brandCategory || mainCategory || fallbackCategory;
+            
+            console.log('=== CATEGORY SELECTION DEBUG ===');
+            console.log('Brand Category:', brandCategory);
+            console.log('Main Category:', mainCategory);
+            console.log('Fallback Category:', fallbackCategory);
+            console.log('Final Selected Category:', result);
+            console.log('Form series:', form.series);
+            console.log('Form subCategory:', form.subCategory);
+            console.log('=== END CATEGORY SELECTION DEBUG ===');
+            
+            return result;
+          })()}
+          selectedSubcategory={
+            // For Samsung, Apple, and OnePlus (brand categories), use the selected device series for S3 path
+            (getSelectedBrandCategory(form) === 'Samsung' || getSelectedBrandCategory(form) === 'Apple' || getSelectedBrandCategory(form) === 'OnePlus') && form.series 
+              ? form.series 
+              : form.subCategory
+          }
+          totalWallpapers={wallpaperForms.length}
         />
       ))}
+      
+      {/* Progressive loading indicator */}
+      {isProgressiveLoading && wallpaperForms.length > visibleForms && (
+        <div className="flex flex-col items-center justify-center p-6 bg-blue-50 rounded-lg border border-blue-200">
+          <Loader className="h-6 w-6 animate-spin text-blue-600 mb-2" />
+          <p className="text-sm text-blue-700 font-medium">
+            Loading forms {visibleForms + 1}-{Math.min(visibleForms + 5, wallpaperForms.length)} of {wallpaperForms.length}...
+          </p>
+          <p className="text-xs text-blue-600 mt-1">
+            Loading progressively to prevent browser freezing
+          </p>
+        </div>
+      )}
+      
+      {/* Summary for remaining forms */}
+      {!isProgressiveLoading && wallpaperForms.length > visibleForms && (
+        <div className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-sm text-gray-600 font-medium">
+            {wallpaperForms.length - visibleForms} more forms loaded in background
+          </p>
+          <p className="text-xs text-gray-500">
+            All forms are ready for submission
+          </p>
+        </div>
+      )}
       
       <SubmitButton loading={loading} />
       

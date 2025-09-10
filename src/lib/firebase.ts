@@ -163,6 +163,179 @@ export const samsungDeviceModels = [
   "Galaxy F15"
 ];
 
+// OnePlus device models from OnePlus One to OnePlus 13
+export const oneplusDeviceModels = [
+  "OnePlus 13",
+  "OnePlus Ace 3V",
+  "OnePlus Ace 3 Pro",
+  "OnePlus Ace 3",
+  "OnePlus Nord 4",
+  "OnePlus 12",
+  "OnePlus Ace 2 Pro",
+  "OnePlus Nord N30 5G",
+  "OnePlus Nord CE 3 Lite 5G",
+  "OnePlus Nord 3 5G",
+  "OnePlus Nord CE 3 5G",
+  "OnePlus 11",
+  "OnePlus Ace 2V",
+  "OnePlus Ace 2",
+  "OnePlus 10T",
+  "OnePlus Ace Pro",
+  "OnePlus Ace",
+  "OnePlus 10 Pro",
+  "OnePlus Nord CE 2 Lite 5G",
+  "OnePlus Nord N20 5G",
+  "OnePlus Nord CE 2 5G",
+  "OnePlus 9RT",
+  "OnePlus Nord 2 5G",
+  "OnePlus Nord CE 5G",
+  "OnePlus 9R",
+  "OnePlus 9 Pro",
+  "OnePlus 9",
+  "OnePlus 8T",
+  "OnePlus Nord N10 5G",
+  "OnePlus Nord N100",
+  "OnePlus Nord",
+  "OnePlus 8 Pro",
+  "OnePlus 8",
+  "OnePlus 7T Pro",
+  "OnePlus 7T",
+  "OnePlus 7 Pro",
+  "OnePlus 7",
+  "OnePlus 6T",
+  "OnePlus 6",
+  "OnePlus 5T",
+  "OnePlus 5",
+  "OnePlus 3T",
+  "OnePlus 3",
+  "OnePlus X",
+  "OnePlus 2",
+  "OnePlus One"
+];
+
+// iPhone device models from iPhone 3G to iPhone 16
+export const iphoneDeviceModels = [
+  "iPhone 16 series",
+  "iPhone 15 series",
+  "iPhone 14 series",
+  "iPhone SE (3rd generation)",
+  "iPhone 13 series",
+  "iPhone 12 series",
+  "iPhone SE (2nd generation)",
+  "iPhone 11 series",
+  "iPhone XR/XS series",
+  "iPhone X series",
+  "iPhone 8 series",
+  "iPhone 7 series",
+  "iPhone SE (1st generation)",
+  "iPhone 6s series",
+  "iPhone 6 series",
+  "iPhone 5c/5s series",
+  "iPhone 5 series",
+  "iPhone 4S series",
+  "iPhone 4 series",
+  "iPhone 3GS series",
+  "iPhone 3G series"
+];
+
+// iOS versions from iOS 1 to iOS 26
+export const iosVersions = [
+  "iOS 1 (2007)",
+  "iOS 2 (2008)",
+  "iOS 3 (2009)",
+  "iOS 4 (2010)",
+  "iOS 5 (2011)",
+  "iOS 6 (2012)",
+  "iOS 7 (2013)",
+  "iOS 8 (2014)",
+  "iOS 9 (2015)",
+  "iOS 10 (2016)",
+  "iOS 11 (2017)",
+  "iOS 12 (2018)",
+  "iOS 13 (2019)",
+  "iOS 14 (2020)",
+  "iOS 15 (2021)",
+  "iOS 16 (2022)",
+  "iOS 17 (2023)",
+  "iOS 18 (2024)",
+  "iOS 26 (2025)"
+];
+
+// iPhone device launch year mapping
+export const iphoneDeviceYearMap: { [key: string]: number } = {
+  "iPhone 3G series": 2008,
+  "iPhone 3GS series": 2009,
+  "iPhone 4 series": 2010,
+  "iPhone 4S series": 2011,
+  "iPhone 5 series": 2012,
+  "iPhone 5c/5s series": 2013,
+  "iPhone 6 series": 2014,
+  "iPhone 6s series": 2015,
+  "iPhone SE (1st generation)": 2016,
+  "iPhone 7 series": 2016,
+  "iPhone 8 series": 2017,
+  "iPhone X series": 2017,
+  "iPhone XR/XS series": 2018,
+  "iPhone 11 series": 2019,
+  "iPhone SE (2nd generation)": 2020,
+  "iPhone 12 series": 2020,
+  "iPhone 13 series": 2021,
+  "iPhone SE (3rd generation)": 2022,
+  "iPhone 14 series": 2022,
+  "iPhone 15 series": 2023,
+  "iPhone 16 series": 2024
+};
+
+// OnePlus device launch year mapping
+export const oneplusDeviceYearMap: { [key: string]: number } = {
+  "OnePlus One": 2014,
+  "OnePlus 2": 2015,
+  "OnePlus X": 2015,
+  "OnePlus 3": 2016,
+  "OnePlus 3T": 2016,
+  "OnePlus 5": 2017,
+  "OnePlus 5T": 2017,
+  "OnePlus 6": 2018,
+  "OnePlus 6T": 2018,
+  "OnePlus 7": 2019,
+  "OnePlus 7 Pro": 2019,
+  "OnePlus 7T": 2019,
+  "OnePlus 7T Pro": 2019,
+  "OnePlus 8": 2020,
+  "OnePlus 8 Pro": 2020,
+  "OnePlus 8T": 2020,
+  "OnePlus Nord": 2020,
+  "OnePlus Nord N10 5G": 2020,
+  "OnePlus Nord N100": 2020,
+  "OnePlus 9": 2021,
+  "OnePlus 9 Pro": 2021,
+  "OnePlus 9R": 2021,
+  "OnePlus 9RT": 2021,
+  "OnePlus Nord CE 5G": 2021,
+  "OnePlus Nord 2 5G": 2021,
+  "OnePlus 10 Pro": 2022,
+  "OnePlus 10T": 2022,
+  "OnePlus Ace": 2022,
+  "OnePlus Ace Pro": 2022,
+  "OnePlus Nord CE 2 5G": 2022,
+  "OnePlus Nord CE 2 Lite 5G": 2022,
+  "OnePlus Nord N20 5G": 2022,
+  "OnePlus 11": 2023,
+  "OnePlus Ace 2": 2023,
+  "OnePlus Ace 2V": 2023,
+  "OnePlus Ace 2 Pro": 2023,
+  "OnePlus Nord 3 5G": 2023,
+  "OnePlus Nord CE 3 5G": 2023,
+  "OnePlus Nord CE 3 Lite 5G": 2023,
+  "OnePlus Nord N30 5G": 2023,
+  "OnePlus 12": 2023,
+  "OnePlus Ace 3": 2024,
+  "OnePlus Ace 3 Pro": 2024,
+  "OnePlus Ace 3V": 2024,
+  "OnePlus Nord 4": 2024,
+  "OnePlus 13": 2025
+};
+
 // Samsung device launch year mapping
 export const samsungDeviceYearMap: { [key: string]: number } = {
   // 2019
@@ -341,9 +514,9 @@ export const addBrandWallpaperWithId = async (brand, id, wallpaper) => {
       wallpaper.subCategory = "None";
     }
     
-    // Convert launchYear to number for Samsung
+    // Convert launchYear to number for Samsung, Apple, and OnePlus
     const finalWallpaper = { ...wallpaper };
-    if (brand === 'Samsung' && finalWallpaper.launchYear) {
+    if ((brand === 'Samsung' || brand === 'Apple' || brand === 'OnePlus') && finalWallpaper.launchYear) {
       finalWallpaper.launchYear = Number(finalWallpaper.launchYear);
     }
     
@@ -381,6 +554,279 @@ export const addBannerWithId = async (id, banner) => {
     return id;
   } catch (error) {
     console.error("Error adding banner: ", error);
+    throw error;
+  }
+};
+
+// Function to add app-specific banner with nested structure
+// Structure: Banners/{auto-id}/{appName}/{wallpaperId}
+export const addAppBannerWithWallpaperId = async (appName: string, wallpaperId: string, bannerData: any) => {
+  try {
+    // Create a new banner document with auto-generated ID
+    const bannerDocRef = doc(collection(db, "Banners"));
+    
+    // Create the app subcollection document with wallpaper ID
+    const appBannerRef = doc(collection(bannerDocRef, appName), wallpaperId);
+    
+    await setDoc(appBannerRef, {
+      ...bannerData,
+      timestamp: serverTimestamp()
+    });
+    
+    console.log(`App banner added - Banner ID: ${bannerDocRef.id}, App: ${appName}, Wallpaper ID: ${wallpaperId}`);
+    return {
+      bannerId: bannerDocRef.id,
+      appName,
+      wallpaperId
+    };
+  } catch (error) {
+    console.error("Error adding app banner: ", error);
+    throw error;
+  }
+};
+
+// Function to add banner to multiple apps with fixed document structure
+// Structure: Banners/{AppName}Wallpapers/{AppName}/{wallpaper-id}
+export const addBannerToMultipleApps = async (appNames: string[], wallpaperId: string, bannerData: any) => {
+  try {
+    const promises = appNames.map(appName => {
+      // Use fixed document name: {AppName}Wallpapers
+      const fixedDocName = `${appName}Wallpapers`;
+      const bannerDocRef = doc(db, "Banners", fixedDocName);
+      
+      // Create subcollection under the fixed document: {AppName}Wallpapers/{AppName}/{wallpaper-id}
+      const appBannerRef = doc(collection(bannerDocRef, appName), wallpaperId);
+      return setDoc(appBannerRef, {
+        ...bannerData,
+        timestamp: serverTimestamp()
+      });
+    });
+    
+    await Promise.all(promises);
+    
+    const fixedDocNames = appNames.map(appName => `${appName}Wallpapers`);
+    console.log(`Banner added to multiple apps - Fixed Doc Names: ${fixedDocNames.join(', ')}, Apps: ${appNames.join(', ')}, Wallpaper ID: ${wallpaperId}`);
+    return {
+      fixedDocNames,
+      appNames,
+      wallpaperId
+    };
+  } catch (error) {
+    console.error("Error adding banner to multiple apps: ", error);
+    throw error;
+  }
+};
+
+// Function to get all banners for a specific app with fixed document structure
+export const getAppBanners = async (appName: string) => {
+  try {
+    const appBanners = [];
+    
+    // Use fixed document name: {AppName}Wallpapers
+    const fixedDocName = `${appName}Wallpapers`;
+    const bannerDocRef = doc(db, "Banners", fixedDocName);
+    
+    // Get the app subcollection: Banners/{AppName}Wallpapers/{AppName}/
+    const appSubcollectionRef = collection(bannerDocRef, appName);
+    const appBannersSnapshot = await getDocs(appSubcollectionRef);
+    
+    appBannersSnapshot.forEach(appBannerDoc => {
+      appBanners.push({
+        fixedDocName,
+        wallpaperId: appBannerDoc.id,
+        appName,
+        data: appBannerDoc.data()
+      });
+    });
+    
+    console.log(`Retrieved ${appBanners.length} banners for app: ${appName} from ${fixedDocName}`);
+    return appBanners;
+  } catch (error) {
+    console.error(`Error getting banners for app ${appName}:`, error);
+    throw error;
+  }
+};
+
+// Function to get banner by app and wallpaper ID
+export const getBannerByAppAndWallpaperId = async (appName: string, wallpaperId: string) => {
+  try {
+    // Use fixed document structure: Banners/{AppName}Wallpapers/{AppName}/{wallpaper-id}
+    const fixedDocName = `${appName}Wallpapers`;
+    const bannerDocRef = doc(db, "Banners", fixedDocName);
+    const appBannerRef = doc(collection(bannerDocRef, appName), wallpaperId);
+    const appBannerDoc = await getDoc(appBannerRef);
+    
+    if (appBannerDoc.exists()) {
+      return {
+        bannerId: fixedDocName,
+        wallpaperId: appBannerDoc.id,
+        appName,
+        data: appBannerDoc.data()
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error(`Error getting banner for app ${appName} and wallpaper ${wallpaperId}:`, error);
+    throw error;
+  }
+};
+
+// Function to delete banner from specific app
+export const deleteBannerFromApp = async (appName: string, wallpaperId: string) => {
+  try {
+    // Use fixed document structure: Banners/{AppName}Wallpapers/{AppName}/{wallpaper-id}
+    const fixedDocName = `${appName}Wallpapers`;
+    const bannerDocRef = doc(db, "Banners", fixedDocName);
+    const appBannerRef = doc(collection(bannerDocRef, appName), wallpaperId);
+    await deleteDoc(appBannerRef);
+    
+    console.log(`Banner deleted from app - Fixed Doc: ${fixedDocName}, App: ${appName}, Wallpaper ID: ${wallpaperId}`);
+    return true;
+  } catch (error) {
+    console.error("Error deleting banner from app: ", error);
+    throw error;
+  }
+};
+
+// Function to get all banners with their associated apps
+export const getAllBannersWithApps = async () => {
+  try {
+    const allBanners = [];
+    
+    // Get banners from fixed document structure: Banners/{AppName}Wallpapers
+    const commonApps = ['iPhone17', 'Samsung', 'OnePlus', 'General'];
+    
+    for (const appName of commonApps) {
+      const fixedDocName = `${appName}Wallpapers`;
+      const bannerDocRef = doc(db, "Banners", fixedDocName);
+      const appSubcollectionRef = collection(bannerDocRef, appName);
+      
+      try {
+        const appBannersSnapshot = await getDocs(appSubcollectionRef);
+        
+        if (!appBannersSnapshot.empty) {
+          const bannerData = {
+            bannerId: fixedDocName,
+            apps: {
+              [appName]: []
+            }
+          };
+          
+          appBannersSnapshot.forEach(appBannerDoc => {
+            bannerData.apps[appName].push({
+              wallpaperId: appBannerDoc.id,
+              data: appBannerDoc.data()
+            });
+          });
+          
+          allBanners.push(bannerData);
+        }
+      } catch (error) {
+        console.log(`No banners found for ${appName}, skipping...`);
+      }
+    }
+    
+    console.log(`Retrieved ${allBanners.length} banner documents with their apps`);
+    return allBanners;
+  } catch (error) {
+    console.error("Error getting all banners with apps: ", error);
+    throw error;
+  }
+};
+
+// Function to migrate existing banners to new nested structure
+export const migrateBannersToNestedStructure = async () => {
+  try {
+    console.log('Starting banner migration to nested structure...');
+    
+    // Get all existing banners
+    const bannersSnapshot = await getDocs(collection(db, "Banners"));
+    const migrationResults = [];
+    
+    for (const bannerDoc of bannersSnapshot.docs) {
+      const bannerData = bannerDoc.data();
+      const oldBannerId = bannerDoc.id;
+      
+      // Check if this is already in nested structure (has subcollections)
+      // If it has bannerName and bannerUrl directly, it's old structure
+      if (bannerData.bannerName && bannerData.bannerUrl) {
+        console.log(`Migrating banner: ${oldBannerId}`);
+        
+        // Create new nested structure in General app
+        const result = await addAppBannerWithWallpaperId('General', oldBannerId, {
+          bannerName: bannerData.bannerName,
+          bannerUrl: bannerData.bannerUrl
+        });
+        
+        // Delete old banner document
+        await deleteDoc(doc(db, "Banners", oldBannerId));
+        
+        migrationResults.push({
+          oldId: oldBannerId,
+          newStructure: result,
+          status: 'migrated'
+        });
+        
+        console.log(`Migrated banner ${oldBannerId} to nested structure`);
+      } else {
+        migrationResults.push({
+          oldId: oldBannerId,
+          status: 'already_nested'
+        });
+      }
+    }
+    
+    console.log(`Migration completed. Results:`, migrationResults);
+    return migrationResults;
+  } catch (error) {
+    console.error("Error migrating banners: ", error);
+    throw error;
+  }
+};
+
+// Function to get banner by wallpaper URL (updated for nested structure)
+export const getBannerByWallpaperUrlNested = async (imageUrl: string, appName?: string) => {
+  try {
+    // Transform the URL to match the banner URL format (with 'h' before extension)
+    const getUrlWithH = (url) => {
+      const lastDotIndex = url.lastIndexOf('.');
+      if (lastDotIndex !== -1) {
+        return `${url.substring(0, lastDotIndex)}h${url.substring(lastDotIndex)}`;
+      }
+      return url;
+    };
+    
+    const bannerUrl = getUrlWithH(imageUrl);
+    
+    // Get all banner documents
+    const bannersSnapshot = await getDocs(collection(db, "Banners"));
+    
+    // Search through all banner documents and their app subcollections
+    for (const bannerDoc of bannersSnapshot.docs) {
+      const appsToCheck = appName ? [appName] : ['iPhone17', 'Samsung', 'OnePlus', 'General'];
+      
+      for (const app of appsToCheck) {
+        const appSubcollectionRef = collection(bannerDoc.ref, app);
+        const appBannersSnapshot = await getDocs(appSubcollectionRef);
+        
+        for (const appBannerDoc of appBannersSnapshot.docs) {
+          const bannerData = appBannerDoc.data();
+          if (bannerData.bannerUrl === bannerUrl) {
+            return {
+              bannerId: bannerDoc.id,
+              wallpaperId: appBannerDoc.id,
+              appName: app,
+              data: bannerData
+            };
+          }
+        }
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Error getting banner by URL (nested): ", error);
     throw error;
   }
 };
@@ -507,6 +953,27 @@ export const getDevices = async (brand) => {
   } catch (error) {
     console.error("Error getting devices: ", error);
     throw error;
+  }
+};
+
+// Function to get all devices from all brands
+export const getAllDevices = async () => {
+  try {
+    const snapshot = await getDocs(devicesRef);
+    const allDevices: { [key: string]: Device & { name: string } } = {};
+    
+    snapshot.forEach((doc) => {
+      const deviceData = doc.data() as Device;
+      allDevices[doc.id] = {
+        ...deviceData,
+        name: doc.id // Add the document ID as the brand name
+      };
+    });
+    
+    return allDevices;
+  } catch (error) {
+    console.error('Error getting all devices:', error);
+    return {};
   }
 };
 
@@ -746,7 +1213,7 @@ export const getAnalyticsData = async () => {
     // Get total wallpapers
     const trendingSnapshot = await getDocs(trendingWallpapersRef);
     let totalWallpapers = trendingSnapshot.size;
-    let trendingWallpapers = trendingSnapshot.size;
+    const trendingWallpapers = trendingSnapshot.size;
     
     // Get brand wallpapers
     const brandCategories = (await getCategories()).filter((cat) => cat.categoryType === "brand");
@@ -891,6 +1358,107 @@ export const initializeSamsungDevices = async () => {
     console.error('Error initializing Samsung devices:', error);
     throw error;
   }
+};
+
+// Function to initialize iPhone devices from the predefined list
+export const initializeIphoneDevices = async () => {
+  try {
+    // Remove duplicates from the iPhone device models
+    const uniqueIphoneDevices = [...new Set(iphoneDeviceModels)];
+    
+    await setDoc(doc(devicesRef, 'Apple'), {
+      devices: uniqueIphoneDevices
+    });
+    
+    console.log('iPhone devices initialized successfully');
+    return uniqueIphoneDevices;
+  } catch (error) {
+    console.error('Error initializing iPhone devices:', error);
+    throw error;
+  }
+};
+
+// Function to initialize OnePlus devices from the predefined list
+export const initializeOneplusDevices = async () => {
+  try {
+    // Remove duplicates from the OnePlus device models
+    const uniqueOneplusDevices = [...new Set(oneplusDeviceModels)];
+    
+    await setDoc(doc(devicesRef, 'OnePlus'), {
+      devices: uniqueOneplusDevices
+    });
+    
+    console.log('OnePlus devices initialized successfully');
+    return uniqueOneplusDevices;
+  } catch (error) {
+    console.error('Error initializing OnePlus devices:', error);
+    throw error;
+  }
+};
+
+// Function to initialize iOS versions for Apple devices (preserves existing devices array)
+export const initializeIosVersions = async () => {
+  try {
+    // Get existing Apple device data
+    const docRef = doc(devicesRef, 'Apple');
+    const docSnap = await getDoc(docRef);
+    
+    let existingDevices: string[] = [];
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      existingDevices = data.devices || [];
+    }
+    
+    // Set both devices and iosVersions arrays
+    await setDoc(doc(devicesRef, 'Apple'), {
+      devices: existingDevices.length > 0 ? existingDevices : [...new Set(iphoneDeviceModels)],
+      iosVersions: [...new Set(iosVersions)]
+    });
+    
+    console.log('iOS versions initialized successfully for Apple');
+    return iosVersions;
+  } catch (error) {
+    console.error('Error initializing iOS versions:', error);
+    throw error;
+  }
+};
+
+// Function to get all trending wallpapers
+export const getTrendingWallpapers = async () => {
+  try {
+    const querySnapshot = await getDocs(trendingWallpapersRef);
+    const wallpapers = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    console.log(`Retrieved ${wallpapers.length} trending wallpapers`);
+    return wallpapers;
+  } catch (error) {
+    console.error('Error getting trending wallpapers:', error);
+    throw error;
+  }
+};
+
+// Function to get all Samsung wallpapers
+export const getSamsungWallpapers = async () => {
+  try {
+    const samsungRef = collection(db, "Samsung");
+    const querySnapshot = await getDocs(samsungRef);
+    const wallpapers = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    console.log(`Retrieved ${wallpapers.length} Samsung wallpapers`);
+    return wallpapers;
+  } catch (error) {
+    console.error('Error getting Samsung wallpapers:', error);
+    throw error;
+  }
+};
+
+// Function to update a wallpaper in a specific collection (alias for updateWallpaper)
+export const updateWallpaperInCollection = async (collectionName: string, id: string, data: any) => {
+  return updateWallpaper(collectionName, id, data);
 };
 
 export { app, db, storage };
