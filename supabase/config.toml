@@ -1,0 +1,7 @@
+project_id = "svuhmpmzadkqrodugcow"
+
+[functions.s3-presign-upload]
+verify_jwt = false
+
+[functions.s3-delete]
+verify_jwt = false
