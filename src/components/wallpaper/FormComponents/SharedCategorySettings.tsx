@@ -14,6 +14,9 @@ interface WallpaperForm {
   source: string;
   exclusive: boolean;
   addAsBanner: boolean;
+  selectedBrandApp: string;
+  customBrandApp: string;
+  subcollectionName: string;
   selectedCategories: string[];
   selectedDeviceSeries: string[];
   selectedIosVersion?: string;

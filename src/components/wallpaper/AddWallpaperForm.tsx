@@ -4,6 +4,7 @@ import {
   addBrandWallpaperWithId,
   addBannerWithId,
   addBannerToMultipleApps,
+  addBannerWithCustomStructure,
   getCategories, 
   getDevices,
   checkDuplicateWallpaper,
@@ -11,7 +12,8 @@ import {
   Device,
   samsungDeviceYearMap,
   iphoneDeviceYearMap,
-  oneplusDeviceYearMap
+  oneplusDeviceYearMap,
+  xiaomiDeviceYearMap
 } from '@/lib/firebase';
 import { toast } from 'sonner';
 import CategoryDialog from './CategoryDialog';
@@ -29,6 +31,9 @@ interface WallpaperForm {
   exclusive: boolean;
   addAsBanner: boolean;
   bannerApps: string[];
+  selectedBrandApp: string;
+  customBrandApp: string;
+  subcollectionName: string;
   depthEffect: boolean;
   selectedCategories: string[];
   selectedDeviceSeries: string[];
@@ -52,6 +57,9 @@ const initialFormState: WallpaperForm = {
   exclusive: false,
   addAsBanner: false,
   bannerApps: [],
+  selectedBrandApp: '',
+  customBrandApp: '',
+  subcollectionName: '',
   depthEffect: false,
   selectedCategories: [],
   selectedDeviceSeries: [],
@@ -203,6 +211,9 @@ const AddWallpaperForm: React.FC = () => {
         source: firstForm.source,
         exclusive: firstForm.exclusive,
         addAsBanner: firstForm.addAsBanner,
+        selectedBrandApp: firstForm.selectedBrandApp,
+        customBrandApp: firstForm.customBrandApp,
+        subcollectionName: firstForm.subcollectionName,
         depthEffect: firstForm.depthEffect,
         selectedCategories: [...firstForm.selectedCategories],
         selectedDeviceSeries: [...firstForm.selectedDeviceSeries],
@@ -245,8 +256,8 @@ const AddWallpaperForm: React.FC = () => {
         const firstForm = wallpaperForms[0];
         const brandCategory = getSelectedBrandCategory(firstForm);
         
-        // For Samsung, Apple, and OnePlus categories, use series name if available, otherwise extract from filename
-        if ((brandCategory === 'Samsung' || brandCategory === 'Apple' || brandCategory === 'OnePlus') && firstForm?.series) {
+        // For Samsung, Apple, OnePlus, and Xiaomi categories, use series name if available, otherwise extract from filename
+        if ((brandCategory === 'Samsung' || brandCategory === 'Apple' || brandCategory === 'OnePlus' || brandCategory === 'Xiaomi') && firstForm?.series) {
           console.log(`📝 Using ${brandCategory} series name for wallpaper ${index + 1}: "${firstForm.series}"`);
           return firstForm.series;
         }
@@ -311,6 +322,9 @@ const AddWallpaperForm: React.FC = () => {
         source: wallpaperForms[0]?.source || 'Official',
         exclusive: wallpaperForms[0]?.exclusive || false,
         addAsBanner: wallpaperForms[0]?.addAsBanner || false,
+        selectedBrandApp: wallpaperForms[0]?.selectedBrandApp || '',
+        customBrandApp: wallpaperForms[0]?.customBrandApp || '',
+        subcollectionName: wallpaperForms[0]?.subcollectionName || '',
         selectedIosVersion: wallpaperForms[0]?.selectedIosVersion || '',
         launchYear: wallpaperForms[0]?.launchYear || ''
       };
@@ -379,6 +393,7 @@ const AddWallpaperForm: React.FC = () => {
       if (index === 0) {
         if (field === 'selectedCategories' || field === 'source' || 
             field === 'exclusive' || field === 'addAsBanner' || field === 'bannerApps' ||
+            field === 'selectedBrandApp' || field === 'customBrandApp' || field === 'subcollectionName' ||
             field === 'selectedDeviceSeries' || field === 'selectedIosVersion' || field === 'appleSelectionType' ||
             field === 'category' || field === 'series' || field === 'depthEffect' ||
             field === 'launchYear' || field === 'subCategory' || field === 'sameWallpaperName' ||
@@ -419,9 +434,9 @@ const AddWallpaperForm: React.FC = () => {
         
         // Special handling for sameAsCategory checkbox
         if (field === 'sameAsCategory' && value === true) {
-          // If Samsung, Apple, or OnePlus category and series selected, set wallpaper name to series name
+          // If Samsung, Apple, OnePlus, or Xiaomi category and series selected, set wallpaper name to series name
           const brandCategory = getSelectedBrandCategory(updatedForms[0]);
-          if ((brandCategory === 'Samsung' || brandCategory === 'Apple' || brandCategory === 'OnePlus') && updatedForms[0].series) {
+          if ((brandCategory === 'Samsung' || brandCategory === 'Apple' || brandCategory === 'OnePlus' || brandCategory === 'Xiaomi') && updatedForms[0].series) {
             updatedForms[0].wallpaperName = updatedForms[0].series;
             
             // Also update all other forms that have sameAsCategory checked
@@ -588,8 +603,8 @@ const AddWallpaperForm: React.FC = () => {
           form.launchYear = year;
         }
         
-        // For Samsung, Apple, and OnePlus, always auto-set wallpaper name to device series
-        if (brand === 'Samsung' || brand === 'Apple' || brand === 'OnePlus') {
+        // For Samsung, Apple, OnePlus, and Xiaomi, always auto-set wallpaper name to device series
+        if (brand === 'Samsung' || brand === 'Apple' || brand === 'OnePlus' || brand === 'Xiaomi') {
           form.wallpaperName = deviceSeries;
         }
       } else {
@@ -610,8 +625,8 @@ const AddWallpaperForm: React.FC = () => {
               launchYear: updatedForms[0].launchYear
             };
             
-            // For Samsung, Apple, and OnePlus, also update wallpaper name to series name
-            if ((brand === 'Samsung' || brand === 'Apple' || brand === 'OnePlus') && updatedForms[0].series) {
+            // For Samsung, Apple, OnePlus, and Xiaomi, also update wallpaper name to series name
+            if ((brand === 'Samsung' || brand === 'Apple' || brand === 'OnePlus' || brand === 'Xiaomi') && updatedForms[0].series) {
               updatedForms[i].wallpaperName = updatedForms[0].series;
             }
           }
@@ -633,6 +648,8 @@ const AddWallpaperForm: React.FC = () => {
         year = iphoneDeviceYearMap[deviceSeries] || currentYear;
       } else if (brand === 'OnePlus') {
         year = oneplusDeviceYearMap[deviceSeries] || currentYear;
+      } else if (brand === 'Xiaomi') {
+        year = xiaomiDeviceYearMap[deviceSeries] || currentYear;
       } else {
         year = currentYear;
       }
@@ -846,7 +863,7 @@ const AddWallpaperForm: React.FC = () => {
           } else if (devices[brand] && form.selectedDeviceSeries.length > 0) {
             // For device series (Apple with devices selected, or other brands)
             for (const deviceSeries of form.selectedDeviceSeries) {
-              const launchYearValue = (brand === 'Samsung' || brand === 'Apple' || brand === 'OnePlus') && form.launchYear
+              const launchYearValue = (brand === 'Samsung' || brand === 'Apple' || brand === 'OnePlus' || brand === 'Xiaomi') && form.launchYear
                 ? parseInt(form.launchYear, 10)
                 : form.launchYear || '';
               
@@ -885,28 +902,43 @@ const AddWallpaperForm: React.FC = () => {
           }
         }
         
-        // Handle banner creation with nested structure
-        if (form.addAsBanner && form.bannerApps.length > 0 && createdWallpaperIds.length > 0) {
+        // Handle banner creation with custom structure
+        if (form.addAsBanner && form.selectedBrandApp && form.subcollectionName && createdWallpaperIds.length > 0) {
           const getBannerUrl = (url: string): string => {
             console.log('🖼️ [BANNER] Using original imageUrl as bannerUrl:', url);
             // Return the original imageUrl as-is without any CloudFront transformations
             return url;
           };
-          
+
           const bannerUrl = getBannerUrl(form.imageUrl);
           const bannerData = {
             bannerName: form.wallpaperName,
             bannerUrl: bannerUrl
           };
-          
-          console.log('🖼️ [BANNER] Creating nested banners for apps:', form.bannerApps);
+
+          // Determine the brand app name (use custom if selected, otherwise use predefined)
+          const brandApp = form.selectedBrandApp === 'custom' ? form.customBrandApp : form.selectedBrandApp;
+
+          // Validate that brandApp is not empty
+          if (!brandApp || brandApp.trim() === '') {
+            console.error('🖼️ [BANNER] Error: Brand app name is required for banner creation');
+            toast.error('Please provide a brand app name for banner creation');
+            continue; // Skip this wallpaper
+          }
+
+          console.log('🖼️ [BANNER] Creating custom banner - Brand App:', brandApp, 'Subcollection:', form.subcollectionName);
           console.log('🖼️ [BANNER] Banner data:', bannerData);
           console.log('🖼️ [BANNER] Created wallpaper IDs:', createdWallpaperIds);
-          
-          // Create banner for each created wallpaper ID to ensure ID matching
+
+          // Create banner for each created wallpaper ID using custom structure
           for (const wallpaperId of createdWallpaperIds) {
-            const bannerResult = await addBannerToMultipleApps(form.bannerApps, wallpaperId, bannerData);
-            console.log(`🖼️ [BANNER] Nested banner created for wallpaper ${wallpaperId}:`, bannerResult);
+            const bannerResult = await addBannerWithCustomStructure(
+              brandApp,
+              form.subcollectionName,
+              wallpaperId,
+              bannerData
+            );
+            console.log(`🖼️ [BANNER] Custom banner created for wallpaper ${wallpaperId}:`, bannerResult);
           }
         }
         
@@ -1148,9 +1180,9 @@ const AddWallpaperForm: React.FC = () => {
             return result;
           })()}
           selectedSubcategory={
-            // For Samsung, Apple, and OnePlus (brand categories), use the selected device series for S3 path
-            (getSelectedBrandCategory(form) === 'Samsung' || getSelectedBrandCategory(form) === 'Apple' || getSelectedBrandCategory(form) === 'OnePlus') && form.series 
-              ? form.series 
+            // For Samsung, Apple, OnePlus, and Xiaomi (brand categories), use the selected device series for S3 path
+            (getSelectedBrandCategory(form) === 'Samsung' || getSelectedBrandCategory(form) === 'Apple' || getSelectedBrandCategory(form) === 'OnePlus' || getSelectedBrandCategory(form) === 'Xiaomi') && form.series
+              ? form.series
               : form.subCategory
           }
           totalWallpapers={wallpaperForms.length}

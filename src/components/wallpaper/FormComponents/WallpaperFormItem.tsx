@@ -16,6 +16,9 @@ interface WallpaperForm {
   exclusive: boolean;
   addAsBanner: boolean;
   bannerApps: string[];
+  selectedBrandApp: string;
+  customBrandApp: string;
+  subcollectionName: string;
   depthEffect?: boolean;
   selectedCategories: string[];
   selectedDeviceSeries: string[];
@@ -131,6 +134,9 @@ const WallpaperFormItem: React.FC<WallpaperFormItemProps> = ({
             exclusive={form.exclusive}
             addAsBanner={form.addAsBanner}
             bannerApps={form.bannerApps}
+            selectedBrandApp={form.selectedBrandApp}
+            customBrandApp={form.customBrandApp}
+            subcollectionName={form.subcollectionName}
             depthEffect={form.depthEffect || hasDepthEffectCategory}
             sameAsCategory={form.sameAsCategory}
             sameSource={form.sameSource}

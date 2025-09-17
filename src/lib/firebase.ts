@@ -213,6 +213,42 @@ export const oneplusDeviceModels = [
   "OnePlus One"
 ];
 
+// Xiaomi/Mi flagship device models including Civi and Mix Flip series
+export const xiaomiDeviceModels = [
+  "Xiaomi 17",
+  "Xiaomi 15",
+  "Xiaomi 14",
+  "Xiaomi 14 Civi",
+  "Xiaomi 13",
+  "Xiaomi 12",
+  "Xiaomi Civi 3",
+  "Xiaomi Civi 2",
+  "Xiaomi Civi 1S",
+  "Xiaomi Mi 11",
+  "Xiaomi Civi",
+  "Mi Mix Fold 4",
+  "Mi Mix Flip 2",
+  "Mi Mix Fold 3",
+  "Mi Mix Flip",
+  "Mi Mix Fold 2",
+  "Mi Mix Fold",
+  "Xiaomi Mi 10",
+  "Mi Mix Alpha",
+  "Xiaomi Mi 9",
+  "Mi Mix 3",
+  "Xiaomi Mi 8",
+  "Mi Mix 2",
+  "Xiaomi Mi 6",
+  "Xiaomi Mi 5c",
+  "Mi Mix",
+  "Xiaomi Mi 5s",
+  "Xiaomi Mi 5",
+  "Xiaomi Mi 4",
+  "Xiaomi Mi 3",
+  "Xiaomi Mi 2",
+  "Xiaomi Mi 1"
+];
+
 // iPhone device models from iPhone 3G to iPhone 16
 export const iphoneDeviceModels = [
   "iPhone 16 series",
@@ -334,6 +370,42 @@ export const oneplusDeviceYearMap: { [key: string]: number } = {
   "OnePlus Ace 3V": 2024,
   "OnePlus Nord 4": 2024,
   "OnePlus 13": 2025
+};
+
+// Xiaomi device launch year mapping
+export const xiaomiDeviceYearMap: { [key: string]: number } = {
+  "Xiaomi Mi 1": 2011,
+  "Xiaomi Mi 2": 2012,
+  "Xiaomi Mi 3": 2013,
+  "Xiaomi Mi 4": 2014,
+  "Xiaomi Mi 5": 2016,
+  "Xiaomi Mi 5s": 2016,
+  "Mi Mix": 2016,
+  "Xiaomi Mi 5c": 2017,
+  "Xiaomi Mi 6": 2017,
+  "Mi Mix 2": 2017,
+  "Xiaomi Mi 8": 2018,
+  "Mi Mix 3": 2018,
+  "Xiaomi Mi 9": 2019,
+  "Mi Mix Alpha": 2019,
+  "Xiaomi Mi 10": 2020,
+  "Xiaomi Mi 11": 2021,
+  "Xiaomi Civi": 2021,
+  "Mi Mix Fold": 2021,
+  "Xiaomi 12": 2022,
+  "Xiaomi Civi 1S": 2022,
+  "Xiaomi Civi 2": 2022,
+  "Mi Mix Fold 2": 2022,
+  "Xiaomi 13": 2023,
+  "Xiaomi Civi 3": 2023,
+  "Mi Mix Fold 3": 2023,
+  "Xiaomi 14": 2023,
+  "Xiaomi 15": 2024,
+  "Xiaomi 14 Civi": 2024,
+  "Mi Mix Fold 4": 2024,
+  "Mi Mix Flip": 2024,
+  "Xiaomi 17": 2025,
+  "Mi Mix Flip 2": 2025
 };
 
 // Samsung device launch year mapping
@@ -516,7 +588,7 @@ export const addBrandWallpaperWithId = async (brand, id, wallpaper) => {
     
     // Convert launchYear to number for Samsung, Apple, and OnePlus
     const finalWallpaper = { ...wallpaper };
-    if ((brand === 'Samsung' || brand === 'Apple' || brand === 'OnePlus') && finalWallpaper.launchYear) {
+    if ((brand === 'Samsung' || brand === 'Apple' || brand === 'OnePlus' || brand === 'Xiaomi') && finalWallpaper.launchYear) {
       finalWallpaper.launchYear = Number(finalWallpaper.launchYear);
     }
     
@@ -613,6 +685,36 @@ export const addBannerToMultipleApps = async (appNames: string[], wallpaperId: s
     };
   } catch (error) {
     console.error("Error adding banner to multiple apps: ", error);
+    throw error;
+  }
+};
+
+// Function to add banner with custom brand app and subcollection naming
+// Structure: Banners/{BrandApp}/{CustomSubcollection}/{wallpaper-id}
+export const addBannerWithCustomStructure = async (
+  brandApp: string,
+  subcollectionName: string,
+  wallpaperId: string,
+  bannerData: any
+) => {
+  try {
+    // Create the banner document in the custom structure
+    const bannerDocRef = doc(db, "Banners", brandApp);
+    const subcollectionRef = doc(collection(bannerDocRef, subcollectionName), wallpaperId);
+
+    await setDoc(subcollectionRef, {
+      ...bannerData,
+      timestamp: serverTimestamp()
+    });
+
+    console.log(`Custom banner added - Brand App: ${brandApp}, Subcollection: ${subcollectionName}, Wallpaper ID: ${wallpaperId}`);
+    return {
+      brandApp,
+      subcollectionName,
+      wallpaperId
+    };
+  } catch (error) {
+    console.error("Error adding custom banner: ", error);
     throw error;
   }
 };
@@ -1392,6 +1494,24 @@ export const initializeOneplusDevices = async () => {
     return uniqueOneplusDevices;
   } catch (error) {
     console.error('Error initializing OnePlus devices:', error);
+    throw error;
+  }
+};
+
+// Function to initialize Xiaomi devices from the predefined list
+export const initializeXiaomiDevices = async () => {
+  try {
+    // Remove duplicates from the Xiaomi device models
+    const uniqueXiaomiDevices = [...new Set(xiaomiDeviceModels)];
+
+    await setDoc(doc(devicesRef, 'Xiaomi'), {
+      devices: uniqueXiaomiDevices
+    });
+
+    console.log('Xiaomi devices initialized successfully');
+    return uniqueXiaomiDevices;
+  } catch (error) {
+    console.error('Error initializing Xiaomi devices:', error);
     throw error;
   }
 };

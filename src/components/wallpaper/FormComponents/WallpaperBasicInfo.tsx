@@ -166,6 +166,9 @@ interface WallpaperBasicInfoProps {
   exclusive: boolean;
   addAsBanner: boolean;
   bannerApps: string[];
+  selectedBrandApp: string;
+  customBrandApp: string;
+  subcollectionName: string;
   sameAsCategory?: boolean;
   sameSource?: boolean;
   sameWallpaperName?: boolean;
@@ -192,6 +195,9 @@ const WallpaperBasicInfo: React.FC<WallpaperBasicInfoProps> = ({
   exclusive,
   addAsBanner,
   bannerApps,
+  selectedBrandApp,
+  customBrandApp,
+  subcollectionName,
   sameAsCategory = false,
   sameSource = false,
   sameWallpaperName = false,
@@ -509,6 +515,7 @@ const WallpaperBasicInfo: React.FC<WallpaperBasicInfoProps> = ({
       'Samsung': selectedSubcategory ? `wallpapers/samsung/${formatSeriesPath(selectedSubcategory)}` : 'wallpapers/samsung',
       'Apple': selectedSubcategory ? `wallpapers/apple/${formatSeriesPath(selectedSubcategory)}` : 'wallpapers/apple',
       'OnePlus': selectedSubcategory ? `wallpapers/oneplus/${formatSeriesPath(selectedSubcategory)}` : 'wallpapers/oneplus',
+      'Xiaomi': selectedSubcategory ? `wallpapers/xiaomi/${formatSeriesPath(selectedSubcategory)}` : 'wallpapers/xiaomi',
       'Google': selectedSubcategory ? `wallpapers/google/${formatSeriesPath(selectedSubcategory)}` : 'wallpapers/google',
       
       // Fallback for any other category names
@@ -1646,17 +1653,16 @@ const WallpaperBasicInfo: React.FC<WallpaperBasicInfoProps> = ({
               <Label htmlFor={`addAsBanner-${index}`}>Add as Banner</Label>
             </div>
             
-            {/* Banner App Selection - only show when addAsBanner is true */}
+            {/* Banner App Configuration - only show when addAsBanner is true */}
             {addAsBanner && (
               <div className="mt-4">
                 <BannerAppSelector
-                  selectedApps={bannerApps}
-                  onAppToggle={(appName, checked) => {
-                    const updatedApps = checked
-                      ? [...bannerApps, appName]
-                      : bannerApps.filter(app => app !== appName);
-                    onChange('bannerApps', updatedApps);
-                  }}
+                  selectedBrandApp={selectedBrandApp}
+                  customBrandApp={customBrandApp}
+                  subcollectionName={subcollectionName}
+                  onBrandAppChange={(brandApp) => onChange('selectedBrandApp', brandApp)}
+                  onCustomBrandAppChange={(customApp) => onChange('customBrandApp', customApp)}
+                  onSubcollectionNameChange={(name) => onChange('subcollectionName', name)}
                 />
               </div>
             )}
