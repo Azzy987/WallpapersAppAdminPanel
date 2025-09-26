@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { getExistingBannerSubcollections, getDefaultSubcollectionSuggestions } from '@/lib/firebase';
 
 interface BannerAppSelectorProps {
   selectedBrandApp: string;
@@ -22,21 +23,6 @@ export const AVAILABLE_BRAND_APPS = [
   { id: 'custom', name: 'Custom App', description: 'Custom brand or app-specific banners' }
 ];
 
-// Default subcollection suggestions based on brand
-export const getDefaultSubcollectionSuggestions = (brandApp: string): string[] => {
-  switch (brandApp) {
-    case 'SamsungWallpapers':
-      return ['SamsungGalaxyBanners', 'SamsungNoteBanners', 'SamsungFoldBanners'];
-    case 'OnePlusWallpapers':
-      return ['OnePlus7Banners', 'OnePlus8Banners', 'OnePlus9Banners', 'OnePlus10Banners'];
-    case 'XiaomiWallpapers':
-      return ['XiaomiMiBanners', 'XiaomiCiviBanners', 'XiaomiMixBanners'];
-    case 'AppleWallpapers':
-      return ['iPhone14Banners', 'iPhone15Banners', 'iPhone16Banners', 'iPhone17Banners'];
-    default:
-      return ['AppBanners', 'CustomBanners'];
-  }
-};
 
 const BannerAppSelector: React.FC<BannerAppSelectorProps> = ({
   selectedBrandApp,
@@ -48,7 +34,35 @@ const BannerAppSelector: React.FC<BannerAppSelectorProps> = ({
   className = ""
 }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showCreateNew, setShowCreateNew] = useState(false);
+  const [existingSubcollections, setExistingSubcollections] = useState<string[]>([]);
+  const [loadingSubcollections, setLoadingSubcollections] = useState(false);
+
   const suggestions = getDefaultSubcollectionSuggestions(selectedBrandApp);
+
+  // Fetch existing subcollections when brand app changes
+  useEffect(() => {
+    const fetchExistingSubcollections = async () => {
+      if (!selectedBrandApp || selectedBrandApp === 'custom') {
+        setExistingSubcollections([]);
+        return;
+      }
+
+      setLoadingSubcollections(true);
+      try {
+        const existing = await getExistingBannerSubcollections(selectedBrandApp);
+        setExistingSubcollections(existing);
+        console.log(`Found ${existing.length} existing subcollections for ${selectedBrandApp}:`, existing);
+      } catch (error) {
+        console.error('Error fetching existing subcollections:', error);
+        setExistingSubcollections([]);
+      } finally {
+        setLoadingSubcollections(false);
+      }
+    };
+
+    fetchExistingSubcollections();
+  }, [selectedBrandApp]);
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -95,47 +109,95 @@ const BannerAppSelector: React.FC<BannerAppSelectorProps> = ({
         </div>
       )}
 
-      {/* Subcollection Name */}
+      {/* Subcollection Selection */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label className="text-sm font-medium">Subcollection Name</Label>
-          {suggestions.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowSuggestions(!showSuggestions)}
-              className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200"
+        <Label className="text-sm font-medium">Subcollection</Label>
+
+        {/* Show existing subcollections if available */}
+        {existingSubcollections.length > 0 && (
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Select existing subcollection:</Label>
+            <Select
+              value={existingSubcollections.includes(subcollectionName) ? subcollectionName : ""}
+              onValueChange={(value) => {
+                if (value === "create-new") {
+                  setShowCreateNew(true);
+                  onSubcollectionNameChange('');
+                } else {
+                  setShowCreateNew(false);
+                  onSubcollectionNameChange(value);
+                }
+              }}
             >
-              {showSuggestions ? 'Hide' : 'Show'} suggestions
-            </button>
-          )}
-        </div>
-
-        <Input
-          value={subcollectionName}
-          onChange={(e) => onSubcollectionNameChange(e.target.value)}
-          placeholder="Enter subcollection name (e.g., 'OnePlus7Banners')"
-          className="w-full"
-        />
-
-        {showSuggestions && suggestions.length > 0 && (
-          <div className="grid grid-cols-1 gap-2">
-            <p className="text-xs text-muted-foreground">Suggested names:</p>
-            <div className="grid grid-cols-2 gap-2">
-              {suggestions.map((suggestion) => (
-                <button
-                  key={suggestion}
-                  type="button"
-                  onClick={() => {
-                    onSubcollectionNameChange(suggestion);
-                    setShowSuggestions(false);
-                  }}
-                  className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-left"
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Choose existing subcollection or create new" />
+              </SelectTrigger>
+              <SelectContent>
+                {existingSubcollections.map((subcollection) => (
+                  <SelectItem key={subcollection} value={subcollection}>
+                    {subcollection}
+                  </SelectItem>
+                ))}
+                <SelectItem value="create-new" className="text-blue-600 font-medium">
+                  + Create New Subcollection
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+        )}
+
+        {/* Show create new section if no existing subcollections or user chose create new */}
+        {(existingSubcollections.length === 0 || showCreateNew || !existingSubcollections.includes(subcollectionName)) && (
+          <div className="space-y-2">
+            {existingSubcollections.length > 0 && (
+              <Label className="text-xs text-muted-foreground">Create new subcollection:</Label>
+            )}
+
+            <Input
+              value={subcollectionName}
+              onChange={(e) => onSubcollectionNameChange(e.target.value)}
+              placeholder="Enter new subcollection name (e.g., 'OnePlus7Banners')"
+              className="w-full"
+            />
+
+            {/* Show suggestions */}
+            {suggestions.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs text-muted-foreground">Suggestions:</Label>
+                  <button
+                    type="button"
+                    onClick={() => setShowSuggestions(!showSuggestions)}
+                    className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200"
+                  >
+                    {showSuggestions ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+
+                {showSuggestions && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {suggestions.map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => {
+                          onSubcollectionNameChange(suggestion);
+                          setShowSuggestions(false);
+                        }}
+                        className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-left"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {loadingSubcollections && (
+          <p className="text-xs text-muted-foreground">Loading existing subcollections...</p>
         )}
 
         <p className="text-xs text-muted-foreground">

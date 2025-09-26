@@ -1,17 +1,18 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { 
-  getFirestore, 
-  collection, 
-  addDoc, 
-  getDocs, 
-  serverTimestamp, 
-  doc, 
-  setDoc, 
-  getDoc, 
-  query, 
-  where, 
-  deleteDoc
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs,
+  serverTimestamp,
+  doc,
+  setDoc,
+  getDoc,
+  query,
+  where,
+  deleteDoc,
+  limit
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
@@ -707,6 +708,9 @@ export const addBannerWithCustomStructure = async (
       timestamp: serverTimestamp()
     });
 
+    // Update the main brand app document to track this subcollection
+    await updateBrandAppSubcollections(brandApp, subcollectionName);
+
     console.log(`Custom banner added - Brand App: ${brandApp}, Subcollection: ${subcollectionName}, Wallpaper ID: ${wallpaperId}`);
     return {
       brandApp,
@@ -716,6 +720,103 @@ export const addBannerWithCustomStructure = async (
   } catch (error) {
     console.error("Error adding custom banner: ", error);
     throw error;
+  }
+};
+
+// Function to update the brand app document with subcollection metadata
+export const updateBrandAppSubcollections = async (brandApp: string, subcollectionName: string) => {
+  try {
+    const bannerDocRef = doc(db, "Banners", brandApp);
+    const bannerDocSnapshot = await getDoc(bannerDocRef);
+
+    let existingSubcollections: string[] = [];
+
+    if (bannerDocSnapshot.exists()) {
+      const data = bannerDocSnapshot.data();
+      if (data && data.subcollections && Array.isArray(data.subcollections)) {
+        existingSubcollections = data.subcollections;
+      }
+    }
+
+    // Add the new subcollection if it doesn't exist
+    if (!existingSubcollections.includes(subcollectionName)) {
+      existingSubcollections.push(subcollectionName);
+
+      await setDoc(bannerDocRef, {
+        subcollections: existingSubcollections,
+        lastUpdated: serverTimestamp()
+      }, { merge: true });
+
+      console.log(`Updated ${brandApp} subcollections:`, existingSubcollections);
+    }
+  } catch (error) {
+    console.error("Error updating brand app subcollections: ", error);
+    // Don't throw error here as it's not critical for banner creation
+  }
+};
+
+// Function to get existing subcollections for a brand app in banner structure
+// Returns list of subcollection names that already exist
+export const getExistingBannerSubcollections = async (brandApp: string): Promise<string[]> => {
+  try {
+    // Reference to the brand app document in Banners collection
+    const bannerDocRef = doc(db, "Banners", brandApp);
+
+    // Check if the main document exists
+    const bannerDocSnapshot = await getDoc(bannerDocRef);
+    if (!bannerDocSnapshot.exists()) {
+      console.log(`No banner document found for brand app: ${brandApp}`);
+      return [];
+    }
+
+    // Try to get metadata about existing subcollections
+    const data = bannerDocSnapshot.data();
+    if (data && data.subcollections && Array.isArray(data.subcollections)) {
+      console.log(`Found ${data.subcollections.length} tracked subcollections for ${brandApp}:`, data.subcollections);
+      return data.subcollections;
+    }
+
+    // Fallback: Try common subcollection names based on brand
+    const commonSubcollections = getDefaultSubcollectionSuggestions(brandApp);
+    const existingSubcollections: string[] = [];
+
+    // Check if these common subcollections exist by trying to read them
+    for (const subcollectionName of commonSubcollections) {
+      try {
+        const subcollectionRef = collection(bannerDocRef, subcollectionName);
+        const subcollectionSnapshot = await getDocs(query(subcollectionRef, limit(1)));
+
+        if (!subcollectionSnapshot.empty) {
+          existingSubcollections.push(subcollectionName);
+        }
+      } catch (error) {
+        // Ignore errors for non-existent subcollections
+        console.log(`Subcollection ${subcollectionName} does not exist or is empty`);
+      }
+    }
+
+    console.log(`Found ${existingSubcollections.length} existing subcollections for ${brandApp}:`, existingSubcollections);
+    return existingSubcollections;
+
+  } catch (error) {
+    console.error("Error getting existing banner subcollections: ", error);
+    return [];
+  }
+};
+
+// Helper function to get default subcollection suggestions (moved from BannerAppSelector)
+export const getDefaultSubcollectionSuggestions = (brandApp: string): string[] => {
+  switch (brandApp) {
+    case 'SamsungWallpapers':
+      return ['SamsungGalaxyBanners', 'SamsungNoteBanners', 'SamsungFoldBanners'];
+    case 'OnePlusWallpapers':
+      return ['OnePlus7Banners', 'OnePlus8Banners', 'OnePlus9Banners', 'OnePlus10Banners'];
+    case 'XiaomiWallpapers':
+      return ['XiaomiMiBanners', 'XiaomiCiviBanners', 'XiaomiMixBanners'];
+    case 'AppleWallpapers':
+      return ['iPhone14Banners', 'iPhone15Banners', 'iPhone16Banners', 'iPhone17Banners'];
+    default:
+      return ['AppBanners', 'CustomBanners'];
   }
 };
 

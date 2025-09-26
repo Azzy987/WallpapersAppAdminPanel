@@ -12,7 +12,8 @@
       "Read(//Users/Azam/AndroidStudioProjects/**)",
       "Bash(npm install:*)",
       "Bash(vercel:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git fetch:*)"
     ],
     "defaultMode": "acceptEdits"
   }
