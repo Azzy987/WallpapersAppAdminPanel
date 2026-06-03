@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Category, Device } from '@/lib/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import SourceSelector from './SourceSelector';
 
 interface WallpaperForm {
   source: string;
@@ -74,16 +75,11 @@ const SharedCategorySettings: React.FC<SharedCategorySettingsProps> = ({
       <CardContent className="pt-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="shared-source">Source</Label>
-              <Input
-                id="shared-source"
-                value={form.source}
-                onChange={(e) => onSourceChange(e.target.value)}
-                placeholder="Official"
-                className="mt-1"
-              />
-            </div>
+            <SourceSelector
+              inputId="shared-source"
+              source={form.source}
+              onSourceChange={onSourceChange}
+            />
             
             <div className="flex items-center space-x-6 pt-2">
               <div className="flex items-center space-x-2">

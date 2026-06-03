@@ -10,6 +10,7 @@ import { Upload, Cloud, CheckCircle, SkipForward, X, Loader2, Sparkles } from 'l
 import { toast } from 'sonner';
 import { DragDropZone } from '@/components/ui/drag-drop-zone';
 import BannerAppSelector from '@/components/BannerAppSelector';
+import SourceSelector from './SourceSelector';
 
 // Progressive Image Loading Component to prevent CloudFront rate limiting
 interface ProgressiveImageProps {
@@ -1223,67 +1224,14 @@ const WallpaperBasicInfo: React.FC<WallpaperBasicInfoProps> = ({
       {/* Only show these fields if sameAsCategory is false */}
       {!sameAsCategory && (
         <>
-          <div>
-            <Label htmlFor={`source-${index}`}>Source</Label>
-            <Input
-              id={`source-${index}`}
-              value={source}
-              onChange={(e) => onChange('source', e.target.value)}
-              placeholder="Official"
-              className="mt-1"
-            />
-            
-            {/* Popular Source Chips */}
-            <div className="mt-3">
-              <div className="text-xs text-gray-500 mb-2">Popular sources:</div>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { name: '4K Wallpapers', icon: '🔥' },
-                  { name: 'hdqwalls', icon: '🎨' },
-                  { name: 'Unsplash', icon: '📷' },
-                  { name: 'Pexels', icon: '🖼️' },
-                  { name: 'Pixabay', icon: '🌟' }
-                ].map((sourceItem) => (
-                  <button
-                    key={sourceItem.name}
-                    type="button"
-                    onClick={() => {
-                      onChange('source', sourceItem.name);
-                      toast.success(`📝 Source set to: ${sourceItem.name}`);
-                    }}
-                    className={`
-                      inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium
-                      transition-all duration-200 border
-                      ${source === sourceItem.name 
-                        ? 'bg-blue-100 text-blue-800 border-blue-300 shadow-sm' 
-                        : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 hover:border-gray-300'
-                      }
-                    `}
-                    title={`Set source to ${sourceItem.name}`}
-                  >
-                    <span>{sourceItem.icon}</span>
-                    <span>{sourceItem.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            {/* Only show "Same source in all wallpapers" checkbox for the first wallpaper */}
-            {index === 0 && (
-              <div className="flex items-center space-x-2 mt-3">
-                <Checkbox
-                  id={`sameSource-${index}`}
-                  checked={sameSource}
-                  onCheckedChange={(checked) => {
-                    onChange('sameSource', checked === true);
-                  }}
-                />
-                <Label htmlFor={`sameSource-${index}`} className="text-sm text-gray-600">
-                  Same source in all wallpapers
-                </Label>
-              </div>
-            )}
-          </div>
+          <SourceSelector
+            inputId={`source-${index}`}
+            source={source}
+            onSourceChange={(value) => onChange('source', value)}
+            sameSource={sameSource}
+            onSameSourceChange={(checked) => onChange('sameSource', checked)}
+            showSameSourceCheckbox={index === 0}
+          />
           
           <div className="flex flex-wrap items-center gap-4 pt-2">
             <div className="flex items-center space-x-2">

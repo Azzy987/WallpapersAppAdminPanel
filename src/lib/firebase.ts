@@ -39,6 +39,7 @@ const trendingWallpapersRef = collection(db, "TrendingWallpapers");
 const bannersRef = collection(db, "Banners");
 const categoriesRef = collection(db, "Categories");
 const devicesRef = collection(db, "Devices");
+const savedSourcesRef = doc(db, "AdminSettings", "savedSources");
 
 // Types
 export interface Category {
@@ -1105,6 +1106,48 @@ export const addCategory = async (category) => {
     return category.categoryName;
   } catch (error) {
     console.error("Error adding category: ", error);
+    throw error;
+  }
+};
+
+export const getSavedSources = async (): Promise<string[]> => {
+  try {
+    const snap = await getDoc(savedSourcesRef);
+    if (!snap.exists()) return [];
+    const list = snap.data().sources;
+    return Array.isArray(list) ? list.filter((s): s is string => typeof s === 'string' && s.trim()) : [];
+  } catch (error) {
+    console.error('Error getting saved sources:', error);
+    throw error;
+  }
+};
+
+export const addSavedSource = async (sourceName: string): Promise<string[]> => {
+  const trimmed = sourceName.trim();
+  if (!trimmed) throw new Error('Source name is required');
+
+  try {
+    const existing = await getSavedSources();
+    if (existing.some((s) => s.toLowerCase() === trimmed.toLowerCase())) {
+      return existing;
+    }
+    const updated = [...existing, trimmed];
+    await setDoc(savedSourcesRef, { sources: updated }, { merge: true });
+    return updated;
+  } catch (error) {
+    console.error('Error adding saved source:', error);
+    throw error;
+  }
+};
+
+export const removeSavedSource = async (sourceName: string): Promise<string[]> => {
+  try {
+    const existing = await getSavedSources();
+    const updated = existing.filter((s) => s !== sourceName);
+    await setDoc(savedSourcesRef, { sources: updated }, { merge: true });
+    return updated;
+  } catch (error) {
+    console.error('Error removing saved source:', error);
     throw error;
   }
 };
