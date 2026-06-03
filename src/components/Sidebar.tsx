@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { BarChart3, Image, Smartphone, Edit, Sun, Moon, Menu, X, RefreshCw, Layers } from 'lucide-react';
+import { BarChart3, Image, Smartphone, Edit, Sun, Moon, Menu, X, RefreshCw, Layers, Lock } from 'lucide-react';
 import { useTheme } from '@/hooks/use-theme';
 import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -83,6 +83,14 @@ const Sidebar: React.FC = () => {
         >
           <Layers className="h-5 w-5" />
           <span>Banner Management</span>
+        </Link>
+
+        <Link
+          to="/paywall-banners"
+          className={`sidebar-item ${isActive('/paywall-banners')}`}
+        >
+          <Lock className="h-5 w-5" />
+          <span>Paywall Banners</span>
         </Link>
       </nav>
       

@@ -13,6 +13,7 @@ import NotFound from "./pages/NotFound";
 import UploadWallpaper from "./pages/UploadWallpaper";
 import BulkThumbnailEdit from "./pages/BulkThumbnailEdit";
 import BannerManagement from "./pages/BannerManagement";
+import PaywallBanners from "./pages/PaywallBanners";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/bulk-thumbnail-edit" element={<BulkThumbnailEdit />} />
             <Route path="/add-devices" element={<AddDevices />} />
             <Route path="/banner-management" element={<BannerManagement />} />
+            <Route path="/paywall-banners" element={<PaywallBanners />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

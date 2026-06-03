@@ -40,8 +40,13 @@ const bannersRef = collection(db, "Banners");
 const categoriesRef = collection(db, "Categories");
 const devicesRef = collection(db, "Devices");
 const savedSourcesRef = doc(db, "AdminSettings", "savedSources");
+const paywallWallpapersRef = collection(db, "PaywallWallpapers");
 
 // Types
+export interface PaywallWallpaper {
+  id: string;
+  wallpaperUrl: string;
+}
 export interface Category {
   categoryName: string;
   categoryType: 'main' | 'brand';
@@ -1148,6 +1153,61 @@ export const removeSavedSource = async (sourceName: string): Promise<string[]> =
     return updated;
   } catch (error) {
     console.error('Error removing saved source:', error);
+    throw error;
+  }
+};
+
+export const getPaywallWallpapers = async (): Promise<PaywallWallpaper[]> => {
+  try {
+    const snap = await getDocs(paywallWallpapersRef);
+    const items: PaywallWallpaper[] = [];
+    snap.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (typeof data.wallpaperUrl === 'string' && data.wallpaperUrl) {
+        items.push({ id: docSnap.id, wallpaperUrl: data.wallpaperUrl });
+      }
+    });
+    return items.sort((a, b) => a.id.localeCompare(b.id));
+  } catch (error) {
+    console.error('Error getting paywall wallpapers:', error);
+    throw error;
+  }
+};
+
+export const addPaywallWallpaper = async (wallpaperUrl: string): Promise<string> => {
+  try {
+    const docRef = await addDoc(paywallWallpapersRef, {
+      wallpaperUrl,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    console.log('Paywall wallpaper added:', docRef.id);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding paywall wallpaper:', error);
+    throw error;
+  }
+};
+
+export const updatePaywallWallpaper = async (id: string, wallpaperUrl: string): Promise<void> => {
+  try {
+    await updateDoc(doc(paywallWallpapersRef, id), {
+      wallpaperUrl,
+      updatedAt: serverTimestamp(),
+    });
+    console.log('Paywall wallpaper updated:', id);
+  } catch (error) {
+    console.error('Error updating paywall wallpaper:', error);
+    throw error;
+  }
+};
+
+export const deletePaywallWallpaper = async (id: string): Promise<void> => {
+  try {
+    await deleteDoc(doc(paywallWallpapersRef, id));
+    console.log('Paywall wallpaper deleted:', id);
+  } catch (error) {
+    console.error('Error deleting paywall wallpaper:', error);
     throw error;
   }
 };
