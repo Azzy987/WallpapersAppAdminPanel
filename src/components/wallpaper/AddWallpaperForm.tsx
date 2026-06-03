@@ -13,7 +13,9 @@ import {
   samsungDeviceYearMap,
   iphoneDeviceYearMap,
   oneplusDeviceYearMap,
-  xiaomiDeviceYearMap
+  xiaomiDeviceYearMap,
+  coerceLaunchYear,
+  extractLaunchYearFromIosVersion
 } from '@/lib/firebase';
 import { toast } from 'sonner';
 import CategoryDialog from './CategoryDialog';
@@ -116,6 +118,7 @@ const AddWallpaperForm: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showBrandOptions, setShowBrandOptions] = useState<{[key: string]: boolean}>({});
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [useSharedCategories, setUseSharedCategories] = useState(false);
   const [wallpaperCount, setWallpaperCount] = useState<number>(3);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
@@ -671,11 +674,15 @@ const AddWallpaperForm: React.FC = () => {
   };
   
   const handleIosVersionChange = (index: number, iosVersion: string) => {
+    const year = extractLaunchYearFromIosVersion(iosVersion);
+    const launchYearStr = year != null ? String(year) : '';
+
     setWallpaperForms(prevForms => {
       const updatedForms = [...prevForms];
       updatedForms[index] = {
         ...updatedForms[index],
-        selectedIosVersion: iosVersion
+        selectedIosVersion: iosVersion,
+        launchYear: launchYearStr
       };
       
       if (index === 0) {
@@ -683,7 +690,8 @@ const AddWallpaperForm: React.FC = () => {
           if (i !== 0 && form.sameAsCategory) {
             updatedForms[i] = {
               ...updatedForms[i],
-              selectedIosVersion: iosVersion
+              selectedIosVersion: iosVersion,
+              launchYear: launchYearStr
             };
           }
         });
@@ -853,18 +861,20 @@ const AddWallpaperForm: React.FC = () => {
           // Handle Apple based on selection type
           if (brand === 'Apple' && form.appleSelectionType === 'iosVersions') {
             // For iOS versions, create a single wallpaper with iOS version info
-            const launchYearValue = form.launchYear ? parseInt(form.launchYear, 10) : '';
+            const launchYearValue = coerceLaunchYear(form.launchYear, form.selectedIosVersion);
             
-            const brandWallpaperData: any = {
+            const brandWallpaperData: Record<string, unknown> = {
               wallpaperName: form.wallpaperName,
               imageUrl: form.imageUrl,
               thumbnail: getUrlWithL(form.imageUrl),
               series: form.selectedIosVersion || 'iOS Version',
-              launchYear: launchYearValue,
               iosVersion: form.selectedIosVersion,
               views: 0,
               downloads: 0
             };
+            if (launchYearValue !== undefined) {
+              brandWallpaperData.launchYear = launchYearValue;
+            }
             
             const iosUniqueId = `${uniqueId}-${form.selectedIosVersion}`;
             await addBrandWallpaperWithId(brand, iosUniqueId, brandWallpaperData);
@@ -872,38 +882,38 @@ const AddWallpaperForm: React.FC = () => {
           } else if (devices[brand] && form.selectedDeviceSeries.length > 0) {
             // For device series (Apple with devices selected, or other brands)
             for (const deviceSeries of form.selectedDeviceSeries) {
-              const launchYearValue = (brand === 'Samsung' || brand === 'Apple' || brand === 'OnePlus' || brand === 'Xiaomi') && form.launchYear
-                ? parseInt(form.launchYear, 10)
-                : form.launchYear || '';
+              const launchYearValue = coerceLaunchYear(form.launchYear);
               
-              const brandWallpaperData: any = {
+              const brandWallpaperData: Record<string, unknown> = {
                 wallpaperName: form.wallpaperName,
                 imageUrl: form.imageUrl,
                 thumbnail: getUrlWithL(form.imageUrl),
                 series: deviceSeries,
-                launchYear: launchYearValue,
                 views: 0,
                 downloads: 0
               };
+              if (launchYearValue !== undefined) {
+                brandWallpaperData.launchYear = launchYearValue;
+              }
               
               const deviceUniqueId = `${uniqueId}-${deviceSeries}`;
               await addBrandWallpaperWithId(brand, deviceUniqueId, brandWallpaperData);
               createdWallpaperIds.push(deviceUniqueId); // Track the device wallpaper ID
             }
           } else {
-            const launchYearValue = (brand === 'Samsung' || brand === 'Apple' || brand === 'OnePlus') && form.launchYear
-              ? parseInt(form.launchYear, 10)
-              : form.launchYear || '';
+            const launchYearValue = coerceLaunchYear(form.launchYear);
               
-            const brandWallpaperData = {
+            const brandWallpaperData: Record<string, unknown> = {
               wallpaperName: form.wallpaperName,
               imageUrl: form.imageUrl,
               thumbnail: getUrlWithL(form.imageUrl),
               series: form.series || 'Default Series',
-              launchYear: launchYearValue,
               views: 0,
               downloads: 0
             };
+            if (launchYearValue !== undefined) {
+              brandWallpaperData.launchYear = launchYearValue;
+            }
             
             const brandUniqueId = `${uniqueId}-${brand}`;
             await addBrandWallpaperWithId(brand, brandUniqueId, brandWallpaperData);
@@ -1129,7 +1139,14 @@ const AddWallpaperForm: React.FC = () => {
           onFieldChange={(field, value) => handleChange(index, field, value)}
           onCategoryChange={(categoryType, categoryName) => handleCategoryChange(index, categoryType, categoryName)}
           onRemoveCategory={(category) => handleRemoveCategory(index, category)}
-          onAddCategoryClick={() => setCategoryDialogOpen(true)}
+          onAddCategoryClick={() => {
+            setEditingCategory(null);
+            setCategoryDialogOpen(true);
+          }}
+          onEditCategoryClick={(category) => {
+            setEditingCategory(category);
+            setCategoryDialogOpen(true);
+          }}
           onDeviceSeriesChange={(brand, deviceSeries, checked) => 
             handleDeviceSeriesChange(index, brand, deviceSeries, checked)
           }
@@ -1183,7 +1200,11 @@ const AddWallpaperForm: React.FC = () => {
       
       <CategoryDialog 
         open={categoryDialogOpen}
-        onOpenChange={setCategoryDialogOpen}
+        editingCategory={editingCategory}
+        onOpenChange={(open) => {
+          setCategoryDialogOpen(open);
+          if (!open) setEditingCategory(null);
+        }}
         onCategoriesUpdated={() => {
           getCategories().then(categoriesData => {
             setCategories(categoriesData);

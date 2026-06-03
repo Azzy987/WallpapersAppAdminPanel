@@ -49,6 +49,7 @@ interface WallpaperFormItemProps {
   onCategoryChange: (categoryType: 'main' | 'brand', categoryName: string) => void;
   onRemoveCategory: (category: string) => void;
   onAddCategoryClick: () => void;
+  onEditCategoryClick?: (category: Category) => void;
   onDeviceSeriesChange: (brand: string, deviceSeries: string, checked: boolean) => void;
   onIosVersionChange: (version: string) => void;
   getSelectedMainCategory: () => string;
@@ -74,6 +75,7 @@ const WallpaperFormItem: React.FC<WallpaperFormItemProps> = ({
   onCategoryChange,
   onRemoveCategory,
   onAddCategoryClick,
+  onEditCategoryClick,
   onDeviceSeriesChange,
   onIosVersionChange,
   getSelectedMainCategory,
@@ -170,6 +172,7 @@ const WallpaperFormItem: React.FC<WallpaperFormItemProps> = ({
                 onCategoryChange={onCategoryChange}
                 onRemoveCategory={onRemoveCategory}
                 onAddCategoryClick={onAddCategoryClick}
+                onEditCategoryClick={onEditCategoryClick}
                 getSelectedMainCategory={getSelectedMainCategory}
                 getSelectedBrandCategory={getSelectedBrandCategory}
                 onSubCategoryChange={handleSubCategoryChange}

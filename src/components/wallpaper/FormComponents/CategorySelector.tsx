@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, X } from 'lucide-react';
+import { PlusCircle, X, Pencil } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Category, getSubcategories } from '@/lib/firebase';
 
@@ -12,6 +12,7 @@ interface CategorySelectorProps {
   onCategoryChange: (categoryType: 'main' | 'brand', categoryName: string) => void;
   onRemoveCategory: (category: string) => void;
   onAddCategoryClick: () => void;
+  onEditCategoryClick?: (category: Category) => void;
   getSelectedMainCategory: () => string;
   getSelectedBrandCategory: () => string;
   onSubCategoryChange?: (subCategory: string) => void;
@@ -24,6 +25,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
   onCategoryChange,
   onRemoveCategory,
   onAddCategoryClick,
+  onEditCategoryClick,
   getSelectedMainCategory,
   getSelectedBrandCategory,
   onSubCategoryChange,
@@ -99,12 +101,28 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
           className="flex flex-wrap gap-3"
         >
           {mainCategories.map(category => (
-            <div key={category.categoryName} className="flex items-center space-x-2">
+            <div key={category.categoryName} className="flex items-center space-x-1">
               <RadioGroupItem
                 value={category.categoryName}
                 id={`main-category-${category.categoryName}`}
               />
               <Label htmlFor={`main-category-${category.categoryName}`}>{category.categoryName}</Label>
+              {onEditCategoryClick && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+                  title="Edit category thumbnail"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onEditCategoryClick(category);
+                  }}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              )}
             </div>
           ))}
         </RadioGroup>
@@ -149,12 +167,28 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
           className="flex flex-wrap gap-3"
         >
           {brandCategories.map(category => (
-            <div key={category.categoryName} className="flex items-center space-x-2">
+            <div key={category.categoryName} className="flex items-center space-x-1">
               <RadioGroupItem
                 value={category.categoryName}
                 id={`brand-category-${category.categoryName}`}
               />
               <Label htmlFor={`brand-category-${category.categoryName}`}>{category.categoryName}</Label>
+              {onEditCategoryClick && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+                  title="Edit category thumbnail"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onEditCategoryClick(category);
+                  }}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              )}
             </div>
           ))}
         </RadioGroup>

@@ -8,6 +8,7 @@ import {
   serverTimestamp,
   doc,
   setDoc,
+  updateDoc,
   getDoc,
   query,
   where,
@@ -556,6 +557,57 @@ export const addTrendingWallpaperWithId = async (id: string, wallpaper) => {
   }
 };
 
+const BRANDS_WITH_NUMERIC_LAUNCH_YEAR = ['Samsung', 'Apple', 'OnePlus', 'Xiaomi'] as const;
+
+/** Parse 4-digit year from strings like "iOS 16 (2022)". */
+export const extractLaunchYearFromIosVersion = (iosVersion: string): number | null => {
+  const paren = iosVersion.match(/\((\d{4})\)/);
+  if (paren) {
+    const y = parseInt(paren[1], 10);
+    return Number.isFinite(y) ? y : null;
+  }
+  const word = iosVersion.match(/\b(19|20)\d{2}\b/);
+  if (word) {
+    const y = parseInt(word[0], 10);
+    return Number.isFinite(y) ? y : null;
+  }
+  return null;
+};
+
+/** Coerce launchYear to a positive number; fall back to year in iOS version label. */
+export const coerceLaunchYear = (
+  launchYear?: string | number | null,
+  iosVersion?: string | null
+): number | undefined => {
+  if (launchYear !== undefined && launchYear !== null && launchYear !== '') {
+    const n = typeof launchYear === 'number' ? launchYear : parseInt(String(launchYear), 10);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  if (iosVersion) {
+    const fromIos = extractLaunchYearFromIosVersion(iosVersion);
+    if (fromIos != null) return fromIos;
+  }
+  return undefined;
+};
+
+export const applyLaunchYearForBrand = (
+  brand: string,
+  wallpaper: Record<string, unknown>
+): void => {
+  if (!BRANDS_WITH_NUMERIC_LAUNCH_YEAR.includes(brand as (typeof BRANDS_WITH_NUMERIC_LAUNCH_YEAR)[number])) {
+    return;
+  }
+  const coerced = coerceLaunchYear(
+    wallpaper.launchYear as string | number | undefined,
+    wallpaper.iosVersion as string | undefined
+  );
+  if (coerced !== undefined) {
+    wallpaper.launchYear = coerced;
+  } else {
+    delete wallpaper.launchYear;
+  }
+};
+
 // Function to add a new brand wallpaper
 export const addBrandWallpaper = async (brand, wallpaper) => {
   try {
@@ -563,10 +615,13 @@ export const addBrandWallpaper = async (brand, wallpaper) => {
     if (wallpaper.category && !wallpaper.subCategory) {
       wallpaper.subCategory = "None";
     }
+
+    const finalWallpaper = { ...wallpaper };
+    applyLaunchYearForBrand(brand, finalWallpaper);
     
     const brandRef = collection(db, brand);
     const docRef = await addDoc(brandRef, {
-      ...wallpaper,
+      ...finalWallpaper,
       timestamp: serverTimestamp(),
       downloads: 0,
       views: 0
@@ -587,11 +642,8 @@ export const addBrandWallpaperWithId = async (brand, id, wallpaper) => {
       wallpaper.subCategory = "None";
     }
     
-    // Convert launchYear to number for Samsung, Apple, and OnePlus
     const finalWallpaper = { ...wallpaper };
-    if ((brand === 'Samsung' || brand === 'Apple' || brand === 'OnePlus' || brand === 'Xiaomi') && finalWallpaper.launchYear) {
-      finalWallpaper.launchYear = Number(finalWallpaper.launchYear);
-    }
+    applyLaunchYearForBrand(brand, finalWallpaper);
     
     await setDoc(doc(db, brand, id), {
       ...finalWallpaper,
@@ -1038,6 +1090,7 @@ export const getBannerByWallpaperUrlNested = async (imageUrl: string, appName?: 
 export const addCategory = async (category) => {
   try {
     const categoryData: any = {
+      name: category.categoryName,
       categoryType: category.categoryType,
       thumbnail: category.thumbnail
     };
@@ -1056,6 +1109,17 @@ export const addCategory = async (category) => {
   }
 };
 
+export const updateCategoryThumbnail = async (categoryName: string, thumbnail: string) => {
+  try {
+    await updateDoc(doc(categoriesRef, categoryName), { thumbnail });
+    console.log("Category thumbnail updated: ", categoryName);
+    return categoryName;
+  } catch (error) {
+    console.error("Error updating category thumbnail: ", error);
+    throw error;
+  }
+};
+
 // Function to update a wallpaper
 export const updateWallpaper = async (collectionName: string, id: string, data: any) => {
   try {
@@ -1063,9 +1127,12 @@ export const updateWallpaper = async (collectionName: string, id: string, data: 
     if (data.category && !data.subCategory) {
       data.subCategory = "None";
     }
+
+    const finalData = { ...data };
+    applyLaunchYearForBrand(collectionName, finalData);
     
     const docRef = doc(db, collectionName, id);
-    await setDoc(docRef, data, { merge: true });
+    await setDoc(docRef, finalData, { merge: true });
     console.log(`${collectionName} wallpaper updated with ID: `, id);
     return id;
   } catch (error) {
