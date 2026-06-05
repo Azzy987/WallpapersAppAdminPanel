@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import {
   Dialog,
   DialogContent,
@@ -21,6 +23,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import FitInSizeSelector, {
+  DEFAULT_FIT_IN_SIZE,
+  type FitInSizeState,
+  fitInStateFromUrl,
+  resolveFitInDimensions,
+} from '@/components/paywall/FitInSizeSelector';
 import {
   addPaywallWallpaper,
   deletePaywallWallpaper,
@@ -29,9 +37,10 @@ import {
   type PaywallWallpaper,
 } from '@/lib/firebase';
 import {
-  PAYWALL_FIT_IN_DIMENSIONS,
   PAYWALL_S3_DIR,
+  dimensionsToAspectRatio,
   getPaywallPreviewUrl,
+  parseFitInDimensions,
   toPaywallWallpaperUrl,
   uploadPaywallImageToS3,
 } from '@/lib/paywallWallpaper';
@@ -45,8 +54,11 @@ import {
   RefreshCw,
   Trash2,
   Upload,
+  X,
 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+
+type UploadEntry = { file: File; preview: string };
 
 const PaywallBanners: React.FC = () => {
   const isMobile = useIsMobile();
@@ -54,14 +66,17 @@ const PaywallBanners: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploadPreview, setUploadPreview] = useState('');
+  const [uploadFiles, setUploadFiles] = useState<UploadEntry[]>([]);
+  const [uploadFitIn, setUploadFitIn] = useState<FitInSizeState>({ ...DEFAULT_FIT_IN_SIZE });
+  const [uploadProgress, setUploadProgress] = useState({ done: 0, total: 0 });
   const uploadFileRef = useRef<HTMLInputElement>(null);
+  const previewUrlsRef = useRef<string[]>([]);
 
   const [editing, setEditing] = useState<PaywallWallpaper | null>(null);
   const [editUrl, setEditUrl] = useState('');
   const [editFile, setEditFile] = useState<File | null>(null);
   const [editPreview, setEditPreview] = useState('');
+  const [editFitIn, setEditFitIn] = useState<FitInSizeState>({ ...DEFAULT_FIT_IN_SIZE });
   const editFileRef = useRef<HTMLInputElement>(null);
 
   const [deleteTarget, setDeleteTarget] = useState<PaywallWallpaper | null>(null);
@@ -81,41 +96,93 @@ const PaywallBanners: React.FC = () => {
     load();
   }, [load]);
 
-  const handleUploadFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file?.type.startsWith('image/')) {
-      toast.error('Please select an image file');
-      return;
-    }
-    setUploadFile(file);
-    setUploadPreview(URL.createObjectURL(file));
+  useEffect(() => {
+    return () => {
+      previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
+
+  const clearUploadPreviews = () => {
+    previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    previewUrlsRef.current = [];
+    setUploadFiles([]);
+    if (uploadFileRef.current) uploadFileRef.current.value = '';
   };
 
-  const handleAdd = async () => {
-    if (!uploadFile) {
-      toast.error('Please select an image to upload');
+  const handleUploadFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const images = files.filter((f) => f.type.startsWith('image/'));
+    if (images.length === 0) {
+      toast.error('Please select image files');
       return;
     }
+    if (images.length < files.length) {
+      toast.warning('Non-image files were skipped');
+    }
+    const entries = images.map((file) => {
+      const preview = URL.createObjectURL(file);
+      previewUrlsRef.current.push(preview);
+      return { file, preview };
+    });
+    setUploadFiles((prev) => [...prev, ...entries]);
+    if (uploadFileRef.current) uploadFileRef.current.value = '';
+  };
+
+  const removeUploadFile = (index: number) => {
+    setUploadFiles((prev) => {
+      const next = [...prev];
+      const [removed] = next.splice(index, 1);
+      if (removed) URL.revokeObjectURL(removed.preview);
+      return next;
+    });
+  };
+
+  const handleBatchAdd = async () => {
+    if (uploadFiles.length === 0) {
+      toast.error('Please select at least one image');
+      return;
+    }
+    const dimensions = resolveFitInDimensions(uploadFitIn);
+    if (!dimensions) {
+      toast.error('Please enter a valid fit-in size');
+      return;
+    }
+
     setSaving(true);
+    setUploadProgress({ done: 0, total: uploadFiles.length });
+    let successCount = 0;
+
     try {
-      const wallpaperUrl = await uploadPaywallImageToS3(uploadFile);
-      await addPaywallWallpaper(wallpaperUrl);
-      toast.success('Paywall banner added');
-      setUploadFile(null);
-      setUploadPreview('');
-      if (uploadFileRef.current) uploadFileRef.current.value = '';
+      for (let i = 0; i < uploadFiles.length; i++) {
+        const { file } = uploadFiles[i];
+        const wallpaperUrl = await uploadPaywallImageToS3(file, dimensions, `-${i}`);
+        await addPaywallWallpaper(wallpaperUrl);
+        successCount++;
+        setUploadProgress({ done: i + 1, total: uploadFiles.length });
+      }
+      toast.success(
+        `Uploaded ${successCount} paywall banner${successCount === 1 ? '' : 's'} (${dimensions})`
+      );
+      clearUploadPreviews();
       await load();
     } catch (err) {
       console.error(err);
-      toast.error(err instanceof Error ? err.message : 'Failed to add paywall banner');
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : `Upload stopped after ${successCount} of ${uploadFiles.length}`
+      );
+      if (successCount > 0) await load();
     } finally {
       setSaving(false);
+      setUploadProgress({ done: 0, total: 0 });
     }
   };
 
   const openEdit = (item: PaywallWallpaper) => {
     setEditing(item);
     setEditUrl(item.wallpaperUrl);
+    setEditFitIn(fitInStateFromUrl(item.wallpaperUrl));
     setEditFile(null);
     setEditPreview('');
     if (editFileRef.current) editFileRef.current.value = '';
@@ -131,15 +198,26 @@ const PaywallBanners: React.FC = () => {
     setEditPreview(URL.createObjectURL(file));
   };
 
+  const editDimensions = resolveFitInDimensions(editFitIn);
+  const editDisplayPreview =
+    editPreview ||
+    (editUrl && editDimensions ? toPaywallWallpaperUrl(editUrl, editDimensions) : '');
+
   const handleSaveEdit = async () => {
     if (!editing) return;
+    const dimensions = resolveFitInDimensions(editFitIn);
+    if (!dimensions) {
+      toast.error('Please enter a valid fit-in size');
+      return;
+    }
+
     setSaving(true);
     try {
       let wallpaperUrl = editUrl.trim();
       if (editFile) {
-        wallpaperUrl = await uploadPaywallImageToS3(editFile);
+        wallpaperUrl = await uploadPaywallImageToS3(editFile, dimensions);
       } else if (wallpaperUrl) {
-        wallpaperUrl = toPaywallWallpaperUrl(wallpaperUrl);
+        wallpaperUrl = toPaywallWallpaperUrl(wallpaperUrl, dimensions);
       }
       if (!wallpaperUrl) {
         toast.error('wallpaperUrl is required');
@@ -148,6 +226,7 @@ const PaywallBanners: React.FC = () => {
       await updatePaywallWallpaper(editing.id, wallpaperUrl);
       toast.success('Paywall banner updated');
       setEditing(null);
+      if (editPreview) URL.revokeObjectURL(editPreview);
       await load();
     } catch (err) {
       console.error(err);
@@ -169,7 +248,7 @@ const PaywallBanners: React.FC = () => {
     }
   };
 
-  const editDisplayPreview = editPreview || (editUrl ? getPaywallPreviewUrl(editUrl) : '');
+  const uploadDimensions = resolveFitInDimensions(uploadFitIn);
 
   return (
     <Layout>
@@ -181,8 +260,7 @@ const PaywallBanners: React.FC = () => {
           Paywall Banners
         </h1>
         <p className="text-muted-foreground animate-fade-in" style={{ animationDelay: '100ms' }}>
-          Manage paywall wallpapers stored in PaywallWallpapers (wallpaperUrl with fit-in{' '}
-          {PAYWALL_FIT_IN_DIMENSIONS})
+          Upload to PaywallWallpapers with configurable CloudFront fit-in sizes
         </p>
       </div>
 
@@ -190,41 +268,86 @@ const PaywallBanners: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Plus className="h-4 w-4" />
-            Upload paywall banner
+            Upload paywall banners
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Files upload to <code className="text-xs bg-muted px-1 rounded">{PAYWALL_S3_DIR}/</code>{' '}
-            on S3. Saved URL uses CloudFront{' '}
-            <code className="text-xs bg-muted px-1 rounded">/fit-in/{PAYWALL_FIT_IN_DIMENSIONS}/</code>{' '}
-            (10% larger than the 360×640 wallpaper thumbnail).
+            Files upload to <code className="text-xs bg-muted px-1 rounded">{PAYWALL_S3_DIR}/</code>.
+            Select multiple images at once; all use the chosen fit-in size.
           </p>
+
+          <FitInSizeSelector
+            idPrefix="upload-fitin"
+            value={uploadFitIn}
+            onChange={setUploadFitIn}
+          />
+
           <input
             ref={uploadFileRef}
             type="file"
             accept="image/*"
+            multiple
             className="hidden"
-            onChange={handleUploadFileChange}
+            onChange={handleUploadFilesChange}
           />
           <div
             className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary transition-colors"
             onClick={() => !saving && uploadFileRef.current?.click()}
           >
-            {uploadPreview ? (
-              <img
-                src={uploadPreview}
-                alt="Upload preview"
-                className="max-h-48 mx-auto rounded object-contain"
-              />
-            ) : (
-              <div className="flex flex-col items-center gap-2 text-muted-foreground py-4">
-                <ImageIcon className="h-10 w-10" />
-                <span>Click to choose an image</span>
-              </div>
-            )}
+            <div className="flex flex-col items-center gap-2 text-muted-foreground py-2">
+              <ImageIcon className="h-10 w-10" />
+              <span>Click to choose one or more images</span>
+              <span className="text-xs">Hold Shift/Cmd to select multiple files</span>
+            </div>
           </div>
-          <Button type="button" onClick={handleAdd} disabled={saving || !uploadFile}>
+
+          {uploadFiles.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>{uploadFiles.length} file{uploadFiles.length === 1 ? '' : 's'} selected</Label>
+                <Button type="button" variant="ghost" size="sm" onClick={clearUploadPreviews}>
+                  Clear all
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-64 overflow-y-auto">
+                {uploadFiles.map((entry, index) => (
+                  <div key={`${entry.file.name}-${index}`} className="relative group rounded border bg-muted/30 p-1">
+                    <button
+                      type="button"
+                      className="absolute top-1 right-1 z-10 rounded-full bg-background/90 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => removeUploadFile(index)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                    <img
+                      src={entry.preview}
+                      alt={entry.file.name}
+                      className="h-20 w-full object-contain rounded"
+                    />
+                    <p className="text-[10px] truncate px-1 mt-1" title={entry.file.name}>
+                      {entry.file.name}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {saving && uploadProgress.total > 0 && (
+            <div className="space-y-1">
+              <Progress value={(uploadProgress.done / uploadProgress.total) * 100} />
+              <p className="text-xs text-muted-foreground text-center">
+                {uploadProgress.done} / {uploadProgress.total} uploaded
+              </p>
+            </div>
+          )}
+
+          <Button
+            type="button"
+            onClick={handleBatchAdd}
+            disabled={saving || uploadFiles.length === 0 || !uploadDimensions}
+          >
             {saving ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -233,7 +356,7 @@ const PaywallBanners: React.FC = () => {
             ) : (
               <>
                 <Upload className="h-4 w-4 mr-2" />
-                Upload &amp; save
+                Upload &amp; save {uploadFiles.length > 0 ? `(${uploadFiles.length})` : ''}
               </>
             )}
           </Button>
@@ -261,54 +384,68 @@ const PaywallBanners: React.FC = () => {
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {items.map((item) => (
-            <Card key={item.id} className="overflow-hidden">
-              <div className="aspect-[396/704] max-h-[320px] bg-muted/40 flex items-center justify-center overflow-hidden">
-                <img
-                  src={getPaywallPreviewUrl(item.wallpaperUrl)}
-                  alt={`Paywall ${item.id}`}
-                  className="w-full h-full object-contain"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
-                />
-              </div>
-              <CardContent className="p-3 space-y-2">
-                <p className="text-xs text-muted-foreground truncate" title={item.wallpaperUrl}>
-                  {item.wallpaperUrl}
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => openEdit(item)}
-                  >
-                    <Pencil className="h-3.5 w-3.5 mr-1" />
-                    Edit
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => setDeleteTarget(item)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+          {items.map((item) => {
+            const dims = parseFitInDimensions(item.wallpaperUrl) || '396x704';
+            return (
+              <Card key={item.id} className="overflow-hidden">
+                <div
+                  className="max-h-[320px] bg-muted/40 flex items-center justify-center overflow-hidden"
+                  style={{ aspectRatio: dimensionsToAspectRatio(dims) }}
+                >
+                  <img
+                    src={getPaywallPreviewUrl(item.wallpaperUrl)}
+                    alt={`Paywall ${item.id}`}
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+                <CardContent className="p-3 space-y-2">
+                  <Badge variant="secondary" className="text-xs">
+                    fit-in {dims}
+                  </Badge>
+                  <p className="text-xs text-muted-foreground truncate" title={item.wallpaperUrl}>
+                    {item.wallpaperUrl}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => openEdit(item)}
+                    >
+                      <Pencil className="h-3.5 w-3.5 mr-1" />
+                      Edit
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setDeleteTarget(item)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
       <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit paywall banner</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            <FitInSizeSelector
+              idPrefix="edit-fitin"
+              value={editFitIn}
+              onChange={setEditFitIn}
+            />
             {editDisplayPreview && (
               <div className="rounded-lg border bg-muted/30 p-2">
                 <Label className="text-xs text-muted-foreground mb-2 block">Preview</Label>
@@ -354,7 +491,7 @@ const PaywallBanners: React.FC = () => {
             <Button type="button" variant="outline" onClick={() => setEditing(null)}>
               Cancel
             </Button>
-            <Button type="button" onClick={handleSaveEdit} disabled={saving}>
+            <Button type="button" onClick={handleSaveEdit} disabled={saving || !editDimensions}>
               {saving ? 'Saving…' : 'Save changes'}
             </Button>
           </DialogFooter>
