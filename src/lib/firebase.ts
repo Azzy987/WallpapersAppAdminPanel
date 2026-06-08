@@ -650,6 +650,10 @@ export const addBrandWallpaperWithId = async (brand, id, wallpaper) => {
     
     const finalWallpaper = { ...wallpaper };
     applyLaunchYearForBrand(brand, finalWallpaper);
+
+    if (brand === 'Wallez') {
+      normalizeWallezWallpaperFields(finalWallpaper);
+    }
     
     await setDoc(doc(db, brand, id), {
       ...finalWallpaper,
@@ -657,6 +661,10 @@ export const addBrandWallpaperWithId = async (brand, id, wallpaper) => {
       downloads: 0,
       views: 0
     });
+
+    if (brand === 'Wallez') {
+      await refreshWallezFacetsDocument();
+    }
     console.log(`${brand} wallpaper added with ID: `, id);
     return id;
   } catch (error) {
@@ -865,6 +873,8 @@ export const getExistingBannerSubcollections = async (brandApp: string): Promise
 // Helper function to get default subcollection suggestions (moved from BannerAppSelector)
 export const getDefaultSubcollectionSuggestions = (brandApp: string): string[] => {
   switch (brandApp) {
+    case 'WallezWallpapers':
+      return ['WallezBanners', 'WallezGlassBanners', 'WallezPromoBanners'];
     case 'SamsungWallpapers':
       return ['SamsungGalaxyBanners', 'SamsungNoteBanners', 'SamsungFoldBanners'];
     case 'OnePlusWallpapers':
@@ -1960,6 +1970,64 @@ export const deleteBannerDoc = async (
   } catch (error) {
     console.error('Error deleting banner doc:', error);
     throw error;
+  }
+};
+
+/** Normalize Wallez wallpaper fields for iOS (multi-category + search tokens). */
+export const normalizeWallezWallpaperFields = (wallpaper: Record<string, any>) => {
+  const legacyCategory = wallpaper.category;
+  let categories: string[] = [];
+  if (Array.isArray(wallpaper.categories)) {
+    categories = wallpaper.categories.filter(Boolean);
+  } else if (typeof legacyCategory === 'string' && legacyCategory) {
+    categories = [legacyCategory];
+  }
+  if (wallpaper.primaryCategory && !categories.includes(wallpaper.primaryCategory)) {
+    categories.unshift(wallpaper.primaryCategory);
+  }
+  wallpaper.primaryCategory = wallpaper.primaryCategory || categories[0] || '';
+  wallpaper.categories = categories;
+  wallpaper.tags = Array.isArray(wallpaper.tags) ? wallpaper.tags : [];
+  wallpaper.colors = Array.isArray(wallpaper.colors) ? wallpaper.colors : [];
+  wallpaper.searchTokens = buildWallezSearchTokens(wallpaper);
+};
+
+const buildWallezSearchTokens = (wallpaper: Record<string, any>): string[] => {
+  const tokens = new Set<string>();
+  const add = (value?: string) => {
+    if (!value) return;
+    value.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).forEach((t) => tokens.add(t));
+  };
+  add(wallpaper.wallpaperName);
+  add(wallpaper.primaryCategory);
+  (wallpaper.categories || []).forEach((c: string) => add(c));
+  (wallpaper.tags || []).forEach((t: string) => add(t));
+  return Array.from(tokens).slice(0, 40);
+};
+
+/** Rebuild WallezFacets/metadata from Wallez collection (run after uploads). */
+export const refreshWallezFacetsDocument = async () => {
+  try {
+    const snap = await getDocs(collection(db, 'Wallez'));
+    const tagCount: Record<string, number> = {};
+    const colorCount: Record<string, number> = {};
+    snap.forEach((docSnap) => {
+      const data = docSnap.data();
+      (data.tags || []).forEach((t: string) => { tagCount[t] = (tagCount[t] || 0) + 1; });
+      (data.colors || []).forEach((c: string) => { colorCount[c] = (colorCount[c] || 0) + 1; });
+    });
+    const tags = Object.entries(tagCount)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 100);
+    const colors = Object.entries(colorCount)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 100);
+    await setDoc(doc(db, 'WallezFacets', 'metadata'), { tags, colors, updatedAt: serverTimestamp() }, { merge: true });
+    console.log(`Wallez facets updated: ${tags.length} tags, ${colors.length} colors`);
+  } catch (error) {
+    console.error('Error refreshing Wallez facets:', error);
   }
 };
 

@@ -8,10 +8,13 @@ import DeviceSelector from './DeviceSelector';
 import { Category, Device } from '@/lib/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { UploadedWallpaperItem } from '@/lib/imageMetadata';
 
 interface WallpaperForm {
   imageUrl: string;
   wallpaperName: string;
+  size?: string;
+  dimensions?: string;
   source: string;
   exclusive: boolean;
   addAsBanner: boolean;
@@ -55,7 +58,7 @@ interface WallpaperFormItemProps {
   getSelectedMainCategory: () => string;
   getSelectedBrandCategory: () => string;
   showCategories?: boolean;
-  onAddMultipleWallpapers?: (urls: string[]) => void;
+  onAddMultipleWallpapers?: (items: UploadedWallpaperItem[]) => void;
   onClearUploads?: (clearFn: () => void) => void;
   totalWallpapers?: number;
   selectedCategory?: string;

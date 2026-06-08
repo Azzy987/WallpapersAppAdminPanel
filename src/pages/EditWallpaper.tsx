@@ -8,8 +8,9 @@ import {
   getAllTrendingWallpapers, 
   getAllWallpapersForBrand,
   deleteWallpapersByCategory,
+  updateWallpaper,
 } from '@/lib/firebase';
-import { Loader2, ArrowUpDown, Trash2 } from 'lucide-react';
+import { Loader2, ArrowUpDown, Trash2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
   Select,
@@ -24,6 +25,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
+import { toast } from 'sonner';
+import {
+  buildWallpaperMetadataFromUrl,
+  hasCompleteWallpaperMetadata,
+  pickDefinedWallpaperMetadata,
+} from '@/lib/imageMetadata';
 
 interface Wallpaper {
   id: string;
@@ -68,6 +75,12 @@ const EditWallpaper = () => {
   const [selectedAppleSeries, setSelectedAppleSeries] = useState<string>('all');
   const [selectedOneplusSeries, setSelectedOneplusSeries] = useState<string>('all');
   const [selectedXiaomiSeries, setSelectedXiaomiSeries] = useState<string>('all');
+  const [metadataBackfill, setMetadataBackfill] = useState({
+    activeTab: '',
+    done: 0,
+    total: 0,
+    running: false,
+  });
 
   useEffect(() => {
     const fetchWallpapers = async () => {
@@ -283,6 +296,108 @@ const EditWallpaper = () => {
     return sortWallpapers(filtered, sortField, sortDirection);
   };
 
+  const getCollectionNameForTab = (activeTab: string) => {
+    if (activeTab === 'trending') return 'TrendingWallpapers';
+    if (activeTab === 'samsung') return 'Samsung';
+    if (activeTab === 'apple') return 'Apple';
+    if (activeTab === 'oneplus') return 'OnePlus';
+    return 'Xiaomi';
+  };
+
+  const getFilteredWallpapersForTab = (activeTab: string) => {
+    if (activeTab === 'trending') return getFilteredTrendingWallpapers();
+    if (activeTab === 'samsung') return getFilteredSamsungWallpapers();
+    if (activeTab === 'apple') return getFilteredAppleWallpapers();
+    if (activeTab === 'oneplus') return getFilteredOneplusWallpapers();
+    return getFilteredXiaomiWallpapers();
+  };
+
+  const refreshWallpapersForTab = async (activeTab: string) => {
+    if (activeTab === 'trending') {
+      setTrendingWallpapers(await getAllTrendingWallpapers());
+    } else if (activeTab === 'samsung') {
+      setSamsungWallpapers(await getAllWallpapersForBrand('Samsung'));
+    } else if (activeTab === 'apple') {
+      setAppleWallpapers(await getAllWallpapersForBrand('Apple'));
+    } else if (activeTab === 'oneplus') {
+      setOneplusWallpapers(await getAllWallpapersForBrand('OnePlus'));
+    } else if (activeTab === 'xiaomi') {
+      setXiaomiWallpapers(await getAllWallpapersForBrand('Xiaomi'));
+    }
+  };
+
+  const handleBackfillMetadata = async (activeTab: string) => {
+    const collectionName = getCollectionNameForTab(activeTab);
+    const targets = getFilteredWallpapersForTab(activeTab).filter(wallpaper => {
+      return !hasCompleteWallpaperMetadata({
+        size: wallpaper.data.size,
+        dimensions: wallpaper.data.dimensions,
+      });
+    });
+
+    if (targets.length === 0) {
+      toast.info('All visible wallpapers already have size and dimensions');
+      return;
+    }
+
+    setMetadataBackfill({
+      activeTab,
+      done: 0,
+      total: targets.length,
+      running: true,
+    });
+
+    let updatedCount = 0;
+    let failedCount = 0;
+    const BATCH_SIZE = 5;
+
+    try {
+      for (let i = 0; i < targets.length; i += BATCH_SIZE) {
+        const batch = targets.slice(i, i + BATCH_SIZE);
+        const results = await Promise.allSettled(
+          batch.map(async (wallpaper) => {
+            const metadata = await buildWallpaperMetadataFromUrl(wallpaper.data.imageUrl);
+            const updateData = pickDefinedWallpaperMetadata({
+              size: wallpaper.data.size || metadata.size,
+              dimensions: wallpaper.data.dimensions || metadata.dimensions,
+            });
+
+            if (Object.keys(updateData).length === 0) {
+              throw new Error(`No metadata found for ${wallpaper.id}`);
+            }
+
+            await updateWallpaper(collectionName, wallpaper.id, updateData);
+          })
+        );
+
+        updatedCount += results.filter(result => result.status === 'fulfilled').length;
+        failedCount += results.filter(result => result.status === 'rejected').length;
+        setMetadataBackfill(prev => ({
+          ...prev,
+          done: Math.min(prev.done + batch.length, targets.length),
+        }));
+      }
+
+      await refreshWallpapersForTab(activeTab);
+
+      if (failedCount > 0) {
+        toast.warning(`Metadata generated for ${updatedCount} wallpaper(s), ${failedCount} failed`);
+      } else {
+        toast.success(`Metadata generated for ${updatedCount} wallpaper(s)`);
+      }
+    } catch (error) {
+      console.error('Error backfilling wallpaper metadata:', error);
+      toast.error('Failed to generate metadata');
+    } finally {
+      setMetadataBackfill({
+        activeTab: '',
+        done: 0,
+        total: 0,
+        running: false,
+      });
+    }
+  };
+
   const sortedTrendingWallpapers = getFilteredTrendingWallpapers();
   const sortedSamsungWallpapers = getFilteredSamsungWallpapers();
   const sortedAppleWallpapers = getFilteredAppleWallpapers();
@@ -402,7 +517,8 @@ const EditWallpaper = () => {
 
   // Render the sort and filter controls
   const renderControls = (activeTab: string) => (
-    <div className="flex items-center justify-between mb-4">
+    <div className="mb-4 space-y-3">
+    <div className="flex items-center justify-between">
       <div className="flex items-center space-x-2">
       {/* Sort Controls */}
       <Select
@@ -556,29 +672,52 @@ const EditWallpaper = () => {
       )}
       </div>
 
-      {/* Delete All Button */}
-      {((activeTab === 'trending' && selectedTrendingCategory !== 'all') ||
-        (activeTab === 'samsung' && selectedSamsungSeries !== 'all') ||
-        (activeTab === 'apple' && selectedAppleSeries !== 'all') ||
-        (activeTab === 'oneplus' && selectedOneplusSeries !== 'all') ||
-        (activeTab === 'xiaomi' && selectedXiaomiSeries !== 'all')) && (
+      <div className="flex items-center gap-2">
         <Button
-          variant="destructive"
-          onClick={() => handleDeleteAllWallpapers(activeTab)}
+          variant="outline"
+          onClick={() => handleBackfillMetadata(activeTab)}
+          disabled={metadataBackfill.running}
           className="flex items-center space-x-2"
         >
-          <Trash2 className="h-4 w-4" />
-          <span>Delete All in {activeTab === 'trending'
-            ? selectedTrendingCategory
-            : activeTab === 'samsung'
-              ? selectedSamsungSeries
-              : activeTab === 'apple'
-                ? selectedAppleSeries
-                : activeTab === 'oneplus'
-                  ? selectedOneplusSeries
-                  : selectedXiaomiSeries}</span>
+          {metadataBackfill.running && metadataBackfill.activeTab === activeTab ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4" />
+          )}
+          <span>Generate Size &amp; Dimensions</span>
         </Button>
-      )}
+
+        {/* Delete All Button */}
+        {((activeTab === 'trending' && selectedTrendingCategory !== 'all') ||
+          (activeTab === 'samsung' && selectedSamsungSeries !== 'all') ||
+          (activeTab === 'apple' && selectedAppleSeries !== 'all') ||
+          (activeTab === 'oneplus' && selectedOneplusSeries !== 'all') ||
+          (activeTab === 'xiaomi' && selectedXiaomiSeries !== 'all')) && (
+          <Button
+            variant="destructive"
+            onClick={() => handleDeleteAllWallpapers(activeTab)}
+            className="flex items-center space-x-2"
+          >
+            <Trash2 className="h-4 w-4" />
+            <span>Delete All in {activeTab === 'trending'
+              ? selectedTrendingCategory
+              : activeTab === 'samsung'
+                ? selectedSamsungSeries
+                : activeTab === 'apple'
+                  ? selectedAppleSeries
+                  : activeTab === 'oneplus'
+                    ? selectedOneplusSeries
+                    : selectedXiaomiSeries}</span>
+          </Button>
+        )}
+      </div>
+    </div>
+
+    {metadataBackfill.running && metadataBackfill.activeTab === activeTab && (
+      <div className="rounded-md border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+        Generating metadata {metadataBackfill.done} / {metadataBackfill.total}
+      </div>
+    )}
     </div>
   );
 

@@ -11,6 +11,10 @@ import { toast } from 'sonner';
 import { DragDropZone } from '@/components/ui/drag-drop-zone';
 import BannerAppSelector from '@/components/BannerAppSelector';
 import SourceSelector from './SourceSelector';
+import {
+  UploadedWallpaperItem,
+  buildWallpaperMetadataFromFile,
+} from '@/lib/imageMetadata';
 
 // Progressive Image Loading Component to prevent CloudFront rate limiting
 interface ProgressiveImageProps {
@@ -182,7 +186,7 @@ interface WallpaperBasicInfoProps {
   showLaunchYear?: boolean;
   totalWallpapers?: number;
   onChange: (field: string, value: any) => void;
-  onAddMultipleWallpapers?: (urls: string[]) => void;
+  onAddMultipleWallpapers?: (items: UploadedWallpaperItem[]) => void;
   onClearUploads?: (clearFn: () => void) => void;
   selectedCategory?: string;
   selectedSubcategory?: string;
@@ -531,7 +535,7 @@ const WallpaperBasicInfo: React.FC<WallpaperBasicInfoProps> = ({
     }
   };
 
-  const uploadSingleFile = async (file: File, index: number): Promise<string | null> => {
+  const uploadSingleFile = async (file: File, index: number): Promise<UploadedWallpaperItem | null> => {
     // Check if we have the required category info
     if (!selectedCategory) {
       const error = 'No category selected. Please select a category in the form below first.';
@@ -565,6 +569,8 @@ const WallpaperBasicInfo: React.FC<WallpaperBasicInfoProps> = ({
     const dir = getUploadDirectory();
     
     try {
+      const metadata = await buildWallpaperMetadataFromFile(file);
+
       // Update progress to show starting
       setUploadProgress(prev => {
         const newProgress = [...prev];
@@ -610,7 +616,7 @@ const WallpaperBasicInfo: React.FC<WallpaperBasicInfoProps> = ({
         setCompletedUploads(prev => prev + 1);
         toast.info(`Skipped "${file.name}" — already exists`);
         
-        return response.publicUrl; // Return existing URL
+        return { url: response.publicUrl, metadata }; // Return existing URL with local file metadata
       }
       
       console.log(`🆕 File ${file.name} does not exist, proceeding with upload`);
@@ -672,7 +678,7 @@ const WallpaperBasicInfo: React.FC<WallpaperBasicInfoProps> = ({
               }
             }, 2000); // Wait 2 seconds for S3/CloudFront propagation
             
-            resolve(response.publicUrl);
+            resolve({ url: response.publicUrl, metadata });
           } else {
             console.error(`❌ S3 Upload FAILED for ${file.name}:`, {
               status: xhr.status,
@@ -738,7 +744,7 @@ const WallpaperBasicInfo: React.FC<WallpaperBasicInfoProps> = ({
       
       console.log(`🚀 Starting S3 upload of ${files.length} files in ${batches.length} batches (max ${BATCH_SIZE} files per batch)`);
       
-      const uploadedUrls: string[] = [];
+      const uploadedItems: UploadedWallpaperItem[] = [];
       
       // Process each batch sequentially, files within batch concurrently
       for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
@@ -750,10 +756,10 @@ const WallpaperBasicInfo: React.FC<WallpaperBasicInfoProps> = ({
           const globalIndex = batchIndex * BATCH_SIZE + indexInBatch;
           
           try {
-            const url = await uploadSingleFile(file, globalIndex);
-            if (url) {
+            const item = await uploadSingleFile(file, globalIndex);
+            if (item) {
               setCompletedUploads(prev => prev + 1);
-              return url;
+              return item;
             }
             return null;
           } catch (error) {
@@ -769,7 +775,7 @@ const WallpaperBasicInfo: React.FC<WallpaperBasicInfoProps> = ({
         // Add successful uploads to the array
         batchResults.forEach((result) => {
           if (result.status === 'fulfilled' && result.value) {
-            uploadedUrls.push(result.value);
+            uploadedItems.push(result.value);
           }
         });
         
@@ -782,21 +788,23 @@ const WallpaperBasicInfo: React.FC<WallpaperBasicInfoProps> = ({
       }
 
       // Report results
-      const failedUploads = files.length - uploadedUrls.length;
+      const failedUploads = files.length - uploadedItems.length;
       
-      if (uploadedUrls.length > 0 && onAddMultipleWallpapers) {
-        onAddMultipleWallpapers(uploadedUrls);
+      if (uploadedItems.length > 0 && onAddMultipleWallpapers) {
+        onAddMultipleWallpapers(uploadedItems);
         if (failedUploads > 0) {
-          toast.success(`✅ ${uploadedUrls.length} of ${files.length} images uploaded successfully! ${failedUploads} failed.`);
+          toast.success(`✅ ${uploadedItems.length} of ${files.length} images uploaded successfully! ${failedUploads} failed.`);
         } else {
-          toast.success(`✅ All ${uploadedUrls.length} images uploaded successfully! Wallpaper forms created.`);
+          toast.success(`✅ All ${uploadedItems.length} images uploaded successfully! Wallpaper forms created.`);
         }
-      } else if (uploadedUrls.length > 0 && !imageUrl) {
+      } else if (uploadedItems.length > 0 && !imageUrl) {
         // Fallback: auto-fill the first image URL if callback not available
-        onChange('imageUrl', uploadedUrls[0]);
-        toast.success(`✅ ${uploadedUrls.length} images uploaded! First URL auto-filled.`);
-      } else if (uploadedUrls.length > 0) {
-        toast.success(`✅ ${uploadedUrls.length} images uploaded successfully!`);
+        onChange('imageUrl', uploadedItems[0].url);
+        onChange('size', uploadedItems[0].metadata?.size || '');
+        onChange('dimensions', uploadedItems[0].metadata?.dimensions || '');
+        toast.success(`✅ ${uploadedItems.length} images uploaded! First URL auto-filled.`);
+      } else if (uploadedItems.length > 0) {
+        toast.success(`✅ ${uploadedItems.length} images uploaded successfully!`);
       } else {
         toast.error('No images were uploaded successfully. Please check the errors above.');
       }
