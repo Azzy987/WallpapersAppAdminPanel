@@ -2,11 +2,12 @@
 import React, { useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2, Eye, Download, ArrowUpDown } from 'lucide-react';
+import { Edit, Trash2, Eye, Download, RefreshCw } from 'lucide-react';
 import EditWallpaperDialog from './EditWallpaperDialog';
 import { toast } from 'sonner';
-import { deleteWallpaper } from '@/lib/firebase';
+import { deleteWallpaper, updateWallpaper } from '@/lib/firebase';
 import { AspectRatio } from "@/components/ui/aspect-ratio";
+import { buildWallpaperMetadataFromUrl, pickDefinedWallpaperMetadata } from '@/lib/imageMetadata';
 
 export interface Wallpaper {
   id: string;
@@ -32,6 +33,9 @@ interface WallpaperGridProps {
   onWallpaperDeleted?: () => void;
   gridColumns?: number;
   useThumbnails?: boolean;
+  initialVisibleCount?: number;
+  loadMoreCount?: number;
+  compact?: boolean;
 }
 
 const WallpaperGrid: React.FC<WallpaperGridProps> = ({
@@ -40,17 +44,30 @@ const WallpaperGrid: React.FC<WallpaperGridProps> = ({
   onWallpaperUpdated,
   onWallpaperDeleted,
   gridColumns = 3,
-  useThumbnails = false
+  useThumbnails = false,
+  initialVisibleCount,
+  loadMoreCount = 10,
+  compact = false
 }) => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedWallpaper, setSelectedWallpaper] = useState<Wallpaper | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [refreshingMetadata, setRefreshingMetadata] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(initialVisibleCount || wallpapers.length);
+  const displayedWallpapers = React.useMemo(
+    () => wallpapers.slice(0, Math.min(visibleCount, wallpapers.length)),
+    [wallpapers, visibleCount]
+  );
+
+  React.useEffect(() => {
+    setVisibleCount(initialVisibleCount || wallpapers.length);
+  }, [initialVisibleCount, wallpapers]);
 
   const groupedWallpapers = React.useMemo(() => {
     if (collection !== 'Samsung') return null;
     
     const grouped: Record<string, Wallpaper[]> = {};
-    wallpapers.forEach(wallpaper => {
+    displayedWallpapers.forEach(wallpaper => {
       const series = wallpaper.data.series || 'Unknown';
       if (!grouped[series]) {
         grouped[series] = [];
@@ -58,7 +75,7 @@ const WallpaperGrid: React.FC<WallpaperGridProps> = ({
       grouped[series].push(wallpaper);
     });
     return grouped;
-  }, [wallpapers, collection]);
+  }, [displayedWallpapers, collection]);
 
   const handleEdit = (wallpaper: Wallpaper) => {
     setSelectedWallpaper(wallpaper);
@@ -108,6 +125,51 @@ const WallpaperGrid: React.FC<WallpaperGridProps> = ({
     toast.success("Wallpaper updated successfully");
   };
 
+  const handleRefreshMetadata = async (wallpaper: Wallpaper) => {
+    setRefreshingMetadata(wallpaper.id);
+
+    try {
+      const metadata = pickDefinedWallpaperMetadata(
+        await buildWallpaperMetadataFromUrl(wallpaper.data.imageUrl)
+      );
+
+      if (!metadata.size || !metadata.dimensions) {
+        throw new Error(`Incomplete metadata: ${JSON.stringify(metadata)}`);
+      }
+
+      await updateWallpaper(collection, wallpaper.id, metadata);
+
+      if (onWallpaperUpdated) {
+        const updatedWallpapers = wallpapers.map(wp =>
+          wp.id === wallpaper.id
+            ? { ...wp, data: { ...wp.data, ...metadata } }
+            : wp
+        );
+        onWallpaperUpdated(updatedWallpapers);
+      }
+
+      toast.success(`Metadata refreshed: ${metadata.dimensions}, ${metadata.size}`);
+      console.info('Metadata refreshed for wallpaper', {
+        collection,
+        id: wallpaper.id,
+        name: wallpaper.data.wallpaperName,
+        imageUrl: wallpaper.data.imageUrl,
+        metadata,
+      });
+    } catch (error) {
+      console.error('Failed to refresh metadata for wallpaper', {
+        collection,
+        id: wallpaper.id,
+        name: wallpaper.data.wallpaperName,
+        imageUrl: wallpaper.data.imageUrl,
+        error,
+      });
+      toast.error(error instanceof Error ? error.message : 'Failed to refresh metadata');
+    } finally {
+      setRefreshingMetadata(null);
+    }
+  };
+
   const getThumbnailUrl = (wallpaper: Wallpaper) => {
     if (useThumbnails) {
       if (wallpaper.data.thumbnail) {
@@ -129,7 +191,7 @@ const WallpaperGrid: React.FC<WallpaperGridProps> = ({
   };
 
   const renderWallpaperGrid = (wallpaperList: Wallpaper[]) => {
-    const gridClass = `grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-${gridColumns} gap-4`;
+    const gridClass = `grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-${gridColumns} ${compact ? 'gap-3' : 'gap-4'}`;
     const isEditWallpaperSection = window.location.pathname.includes('edit-wallpaper');
     
     return (
@@ -176,26 +238,54 @@ const WallpaperGrid: React.FC<WallpaperGridProps> = ({
                   )}
                 </AspectRatio>
               </div>
-              <CardContent className="p-3 space-y-2">
-                <h3 className="font-medium text-sm truncate">
+              <CardContent className={`${compact ? 'p-2 space-y-1.5' : 'p-3 space-y-2'}`}>
+                <h3
+                  className={`${compact ? 'text-xs' : 'text-sm'} font-medium truncate`}
+                  title={`${wallpaper.data.wallpaperName || "Untitled Wallpaper"}\n${wallpaper.id}\n${wallpaper.data.imageUrl}`}
+                >
                   {wallpaper.data.wallpaperName || "Untitled Wallpaper"}
                 </h3>
+                {(wallpaper.data.size || wallpaper.data.dimensions) && (
+                  <div className="flex flex-wrap gap-1 text-[10px] text-muted-foreground">
+                    {wallpaper.data.dimensions && (
+                      <span className="rounded bg-muted px-1.5 py-0.5">{wallpaper.data.dimensions}</span>
+                    )}
+                    {wallpaper.data.size && (
+                      <span className="rounded bg-muted px-1.5 py-0.5">{wallpaper.data.size}</span>
+                    )}
+                  </div>
+                )}
                 <div className="flex space-x-2 justify-center">
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-8 w-8"
+                    className={compact ? 'h-7 w-7' : 'h-8 w-8'}
+                    disabled={refreshingMetadata === wallpaper.id}
+                    onClick={() => handleRefreshMetadata(wallpaper)}
+                    title="Refresh metadata for this wallpaper"
+                  >
+                    {refreshingMetadata === wallpaper.id ? (
+                      <span className="text-[10px]">...</span>
+                    ) : (
+                      <RefreshCw className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
+                    )}
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className={compact ? 'h-7 w-7' : 'h-8 w-8'}
                     onClick={() => handleEdit(wallpaper)}
                     title="Edit"
                   >
-                    <Edit className="h-4 w-4" />
+                    <Edit className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
                   </Button>
                   
                   {(!hasCategories || isEditWallpaperSection) ? (
                     <Button
                       variant="destructive"
                       size="icon"
-                      className="h-8 w-8"
+                      className={compact ? 'h-7 w-7' : 'h-8 w-8'}
                       disabled={deleting === wallpaper.id}
                       onClick={() => handleDelete(wallpaper)}
                       title="Delete"
@@ -203,7 +293,7 @@ const WallpaperGrid: React.FC<WallpaperGridProps> = ({
                       {deleting === wallpaper.id ? (
                         "..."
                       ) : (
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
                       )}
                     </Button>
                   ) : (
@@ -232,7 +322,19 @@ const WallpaperGrid: React.FC<WallpaperGridProps> = ({
           ))}
         </div>
       ) : (
-        renderWallpaperGrid(wallpapers)
+        renderWallpaperGrid(displayedWallpapers)
+      )}
+
+      {visibleCount < wallpapers.length && (
+        <div className="mt-6 flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setVisibleCount(prev => Math.min(prev + loadMoreCount, wallpapers.length))}
+          >
+            Load More ({Math.min(loadMoreCount, wallpapers.length - visibleCount)} of {wallpapers.length - visibleCount} remaining)
+          </Button>
+        </div>
       )}
 
       {selectedWallpaper && (

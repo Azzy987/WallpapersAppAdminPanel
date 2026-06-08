@@ -47,7 +47,13 @@ function apiDevPlugin(env: Record<string, string>): Plugin {
       }
 
       server.middlewares.use((req, res, next) => {
-        if (!req.url?.startsWith("/api/s3-presign-upload")) {
+        const apiRoutes: Record<string, string> = {
+          "/api/s3-presign-upload": "./api/s3-presign-upload.ts",
+          "/api/image-metadata": "./api/image-metadata.ts",
+        };
+        const apiRoute = Object.keys(apiRoutes).find((route) => req.url?.startsWith(route));
+
+        if (!apiRoute) {
           return next();
         }
 
@@ -74,7 +80,7 @@ function apiDevPlugin(env: Record<string, string>): Plugin {
         req.on("data", (chunk) => chunks.push(chunk));
         req.on("end", async () => {
           try {
-            const { default: handler } = await import("./api/s3-presign-upload");
+            const { default: handler } = await import(apiRoutes[apiRoute]);
             const body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
             const vercelReq = {
               method: "POST" as const,

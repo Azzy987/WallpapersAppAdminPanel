@@ -12,6 +12,7 @@ import {
 } from '@/lib/firebase';
 import { Loader2, ArrowUpDown, Trash2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { 
   Select,
   SelectContent,
@@ -28,7 +29,6 @@ import {
 import { toast } from 'sonner';
 import {
   buildWallpaperMetadataFromUrl,
-  hasCompleteWallpaperMetadata,
   pickDefinedWallpaperMetadata,
 } from '@/lib/imageMetadata';
 
@@ -80,6 +80,17 @@ const EditWallpaper = () => {
     done: 0,
     total: 0,
     running: false,
+  });
+  const [metadataFailures, setMetadataFailures] = useState<Array<{
+    id: string;
+    name?: string;
+    imageUrl?: string;
+    error: string;
+  }>>([]);
+  const [metadataUrlFix, setMetadataUrlFix] = useState({
+    url: '',
+    running: false,
+    result: '',
   });
 
   useEffect(() => {
@@ -312,6 +323,14 @@ const EditWallpaper = () => {
     return getFilteredXiaomiWallpapers();
   };
 
+  const getAllWallpapersForTab = (activeTab: string) => {
+    if (activeTab === 'trending') return trendingWallpapers;
+    if (activeTab === 'samsung') return samsungWallpapers;
+    if (activeTab === 'apple') return appleWallpapers;
+    if (activeTab === 'oneplus') return oneplusWallpapers;
+    return xiaomiWallpapers;
+  };
+
   const refreshWallpapersForTab = async (activeTab: string) => {
     if (activeTab === 'trending') {
       setTrendingWallpapers(await getAllTrendingWallpapers());
@@ -328,15 +347,11 @@ const EditWallpaper = () => {
 
   const handleBackfillMetadata = async (activeTab: string) => {
     const collectionName = getCollectionNameForTab(activeTab);
-    const targets = getFilteredWallpapersForTab(activeTab).filter(wallpaper => {
-      return !hasCompleteWallpaperMetadata({
-        size: wallpaper.data.size,
-        dimensions: wallpaper.data.dimensions,
-      });
-    });
+    const targets = getFilteredWallpapersForTab(activeTab);
+    setMetadataFailures([]);
 
     if (targets.length === 0) {
-      toast.info('All visible wallpapers already have size and dimensions');
+      toast.info('No visible wallpapers to scan');
       return;
     }
 
@@ -348,42 +363,88 @@ const EditWallpaper = () => {
     });
 
     let updatedCount = 0;
-    let failedCount = 0;
+    const failedWallpapers: Array<{ wallpaper: Wallpaper; error: string }> = [];
+    const finalFailedItems: Array<{ id: string; name?: string; imageUrl?: string; error: string }> = [];
     const BATCH_SIZE = 5;
 
     try {
+      const writeMetadataForWallpaper = async (wallpaper: Wallpaper) => {
+        const metadata = await buildWallpaperMetadataFromUrl(wallpaper.data.imageUrl);
+        const updateData = pickDefinedWallpaperMetadata(metadata);
+
+        if (!updateData.size || !updateData.dimensions) {
+          throw new Error(`Incomplete metadata: ${JSON.stringify(updateData)}`);
+        }
+
+        await updateWallpaper(collectionName, wallpaper.id, updateData);
+      };
+
       for (let i = 0; i < targets.length; i += BATCH_SIZE) {
         const batch = targets.slice(i, i + BATCH_SIZE);
         const results = await Promise.allSettled(
           batch.map(async (wallpaper) => {
-            const metadata = await buildWallpaperMetadataFromUrl(wallpaper.data.imageUrl);
-            const updateData = pickDefinedWallpaperMetadata({
-              size: wallpaper.data.size || metadata.size,
-              dimensions: wallpaper.data.dimensions || metadata.dimensions,
-            });
-
-            if (Object.keys(updateData).length === 0) {
-              throw new Error(`No metadata found for ${wallpaper.id}`);
+            try {
+              await writeMetadataForWallpaper(wallpaper);
+            } catch (error) {
+              failedWallpapers.push({
+                wallpaper,
+                error: error instanceof Error ? error.message : String(error),
+              });
+              throw error;
             }
-
-            await updateWallpaper(collectionName, wallpaper.id, updateData);
           })
         );
 
         updatedCount += results.filter(result => result.status === 'fulfilled').length;
-        failedCount += results.filter(result => result.status === 'rejected').length;
         setMetadataBackfill(prev => ({
           ...prev,
           done: Math.min(prev.done + batch.length, targets.length),
         }));
       }
 
+      if (failedWallpapers.length > 0) {
+        toast.info(`Retrying ${failedWallpapers.length} failed item(s) one by one`);
+        setMetadataBackfill(prev => ({
+          ...prev,
+          total: targets.length + failedWallpapers.length,
+        }));
+
+        for (let i = 0; i < failedWallpapers.length; i++) {
+          const { wallpaper, error: firstError } = failedWallpapers[i];
+
+          try {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await writeMetadataForWallpaper(wallpaper);
+            updatedCount++;
+          } catch (error) {
+            finalFailedItems.push({
+              id: wallpaper.id,
+              name: wallpaper.data.wallpaperName,
+              imageUrl: wallpaper.data.imageUrl,
+              error: `${firstError}; retry: ${error instanceof Error ? error.message : String(error)}`,
+            });
+          }
+
+          setMetadataBackfill(prev => ({
+            ...prev,
+            done: Math.min(targets.length + i + 1, targets.length + failedWallpapers.length),
+          }));
+        }
+      }
+
       await refreshWallpapersForTab(activeTab);
 
-      if (failedCount > 0) {
-        toast.warning(`Metadata generated for ${updatedCount} wallpaper(s), ${failedCount} failed`);
+      if (finalFailedItems.length > 0) {
+        console.table(finalFailedItems);
+        setMetadataFailures(finalFailedItems);
       } else {
-        toast.success(`Metadata generated for ${updatedCount} wallpaper(s)`);
+        setMetadataFailures([]);
+      }
+
+      if (finalFailedItems.length > 0) {
+        toast.warning(`Metadata force-written for ${updatedCount} wallpaper(s), ${finalFailedItems.length} failed after retry.`);
+      } else {
+        toast.success(`Metadata force-written for ${updatedCount} wallpaper(s)`);
       }
     } catch (error) {
       console.error('Error backfilling wallpaper metadata:', error);
@@ -395,6 +456,56 @@ const EditWallpaper = () => {
         total: 0,
         running: false,
       });
+    }
+  };
+
+  const handleFixMetadataForUrl = async (activeTab: string) => {
+    const url = metadataUrlFix.url.trim();
+    if (!url) {
+      toast.error('Paste an image URL first');
+      return;
+    }
+
+    const collectionName = getCollectionNameForTab(activeTab);
+    const matches = getAllWallpapersForTab(activeTab).filter(wallpaper => {
+      return wallpaper.data.imageUrl === url;
+    });
+
+    if (matches.length === 0) {
+      const fuzzyMatches = getAllWallpapersForTab(activeTab).filter(wallpaper => {
+        return wallpaper.data.imageUrl?.includes(url) || url.includes(wallpaper.data.imageUrl);
+      });
+      setMetadataUrlFix(prev => ({
+        ...prev,
+        result: fuzzyMatches.length > 0
+          ? `No exact match found. ${fuzzyMatches.length} partial match(es) exist; check for transformed/query URL differences.`
+          : 'No matching imageUrl found in this tab collection.',
+      }));
+      toast.error('No exact imageUrl match found in this tab');
+      return;
+    }
+
+    setMetadataUrlFix(prev => ({ ...prev, running: true, result: '' }));
+
+    try {
+      const metadata = pickDefinedWallpaperMetadata(await buildWallpaperMetadataFromUrl(url));
+      if (!metadata.size || !metadata.dimensions) {
+        throw new Error(`Incomplete metadata: ${JSON.stringify(metadata)}`);
+      }
+
+      await Promise.all(matches.map(match => updateWallpaper(collectionName, match.id, metadata)));
+      await refreshWallpapersForTab(activeTab);
+
+      const ids = matches.map(match => match.id).join(', ');
+      const result = `Wrote ${metadata.size}, ${metadata.dimensions} to ${matches.length} doc(s): ${ids}`;
+      setMetadataUrlFix(prev => ({ ...prev, result }));
+      toast.success(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setMetadataUrlFix(prev => ({ ...prev, result: `Failed: ${message}` }));
+      toast.error(`URL metadata fix failed: ${message}`);
+    } finally {
+      setMetadataUrlFix(prev => ({ ...prev, running: false }));
     }
   };
 
@@ -718,6 +829,50 @@ const EditWallpaper = () => {
         Generating metadata {metadataBackfill.done} / {metadataBackfill.total}
       </div>
     )}
+
+    {metadataFailures.length > 0 && (
+      <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm">
+        <div className="font-medium text-destructive mb-2">
+          {metadataFailures.length} metadata item{metadataFailures.length === 1 ? '' : 's'} failed
+        </div>
+        <div className="space-y-2">
+          {metadataFailures.map((failure) => (
+            <div key={failure.id} className="rounded bg-background/80 p-2">
+              <div className="font-medium">{failure.name || 'Untitled wallpaper'}</div>
+              <div className="text-xs text-muted-foreground break-all">ID: {failure.id}</div>
+              <div className="text-xs text-muted-foreground break-all">URL: {failure.imageUrl || 'Missing imageUrl'}</div>
+              <div className="text-xs text-destructive break-all">Error: {failure.error}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+
+    <div className="rounded-md border bg-muted/20 px-4 py-3 text-sm">
+      <div className="mb-2 font-medium">Fix one exact imageUrl</div>
+      <div className="flex flex-col gap-2 lg:flex-row">
+        <Input
+          value={metadataUrlFix.url}
+          onChange={(event) => setMetadataUrlFix(prev => ({ ...prev, url: event.target.value }))}
+          placeholder="Paste exact imageUrl from Firestore"
+          className="font-mono text-xs"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => handleFixMetadataForUrl(activeTab)}
+          disabled={metadataUrlFix.running}
+          className="lg:w-auto"
+        >
+          {metadataUrlFix.running ? 'Fixing...' : 'Force Fix URL'}
+        </Button>
+      </div>
+      {metadataUrlFix.result && (
+        <div className="mt-2 text-xs text-muted-foreground break-all">
+          {metadataUrlFix.result}
+        </div>
+      )}
+    </div>
     </div>
   );
 
@@ -760,8 +915,11 @@ const EditWallpaper = () => {
                   // Refresh the trending wallpapers
                   getAllTrendingWallpapers().then(data => setTrendingWallpapers(data));
                 }}
-                gridColumns={5}
+                gridColumns={6}
                 useThumbnails={true}
+                initialVisibleCount={10}
+                loadMoreCount={10}
+                compact={true}
               />
             </div>
           ) : (
@@ -799,8 +957,11 @@ const EditWallpaper = () => {
                     setSamsungWallpapers(data);
                   });
                 }}
-                gridColumns={5}
+                gridColumns={6}
                 useThumbnails={true}
+                initialVisibleCount={10}
+                loadMoreCount={10}
+                compact={true}
               />
             </div>
           ) : (
@@ -838,8 +999,11 @@ const EditWallpaper = () => {
                     setAppleWallpapers(data);
                   });
                 }}
-                gridColumns={5}
+                gridColumns={6}
                 useThumbnails={true}
+                initialVisibleCount={10}
+                loadMoreCount={10}
+                compact={true}
               />
             </div>
           ) : (
@@ -877,8 +1041,11 @@ const EditWallpaper = () => {
                     setOneplusWallpapers(data);
                   });
                 }}
-                gridColumns={5}
+                gridColumns={6}
                 useThumbnails={true}
+                initialVisibleCount={10}
+                loadMoreCount={10}
+                compact={true}
               />
             </div>
           ) : (
@@ -916,8 +1083,11 @@ const EditWallpaper = () => {
                     setXiaomiWallpapers(data);
                   });
                 }}
-                gridColumns={5}
+                gridColumns={6}
                 useThumbnails={true}
+                initialVisibleCount={10}
+                loadMoreCount={10}
+                compact={true}
               />
             </div>
           ) : (
