@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Progress } from '@/components/ui/progress';
 import { Upload, Cloud, CheckCircle, SkipForward, X, Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import { DragDropZone } from '@/components/ui/drag-drop-zone';
+import { DragDropZone, DragDropZoneHandle } from '@/components/ui/drag-drop-zone';
 import BannerAppSelector from '@/components/BannerAppSelector';
 import SourceSelector from './SourceSelector';
 import {
@@ -234,12 +234,16 @@ const WallpaperBasicInfo: React.FC<WallpaperBasicInfoProps> = ({
   // AI generation state
   const [generatingAiName, setGeneratingAiName] = useState(false);
 
+  // The drop zone owns its own preview list, so clearing our state is not enough
+  const dropZoneRef = React.useRef<DragDropZoneHandle>(null);
+
   // Simple clear function - will be called directly by parent
   const clearUploads = React.useCallback(() => {
     setFiles([]);
     setUploadProgress([]);
     setCompletedUploads(0);
     setUploading(false);
+    dropZoneRef.current?.clearAll();
   }, []);
 
   // Expose clear function to parent via callback ref pattern
@@ -882,6 +886,7 @@ const WallpaperBasicInfo: React.FC<WallpaperBasicInfoProps> = ({
         <div className="space-y-3">
           <Label className="text-sm font-medium">Select Images</Label>
           <DragDropZone
+            ref={dropZoneRef}
             onFilesSelected={(newFiles) => {
               const uniqueFiles = newFiles.filter((newFile) =>
                 !files.some(existingFile =>

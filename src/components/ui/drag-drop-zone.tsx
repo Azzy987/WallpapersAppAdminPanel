@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { Upload, X, Image, FileImage } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -13,7 +13,12 @@ interface DragDropZoneProps {
   disabled?: boolean;
 }
 
-export const DragDropZone: React.FC<DragDropZoneProps> = ({
+// Imperative handle so a parent can clear the selection after a successful upload
+export interface DragDropZoneHandle {
+  clearAll: () => void;
+}
+
+export const DragDropZone = forwardRef<DragDropZoneHandle, DragDropZoneProps>(({
   onFilesSelected,
   accept = 'image/*',
   multiple = true,
@@ -21,7 +26,7 @@ export const DragDropZone: React.FC<DragDropZoneProps> = ({
   maxSizeBytes = 15 * 1024 * 1024, // 15MB default
   className = '',
   disabled = false
-}) => {
+}, ref) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -222,8 +227,14 @@ export const DragDropZone: React.FC<DragDropZoneProps> = ({
     });
     objectUrlsRef.current.clear();
     setSelectedFiles([]);
+    // Reset the native input so re-picking the same file still fires onChange
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   }, []);
-  
+
+  useImperativeHandle(ref, () => ({ clearAll }), [clearAll]);
+
   // Clean up object URLs when component unmounts
   useEffect(() => {
     return () => {
@@ -461,6 +472,8 @@ export const DragDropZone: React.FC<DragDropZoneProps> = ({
       )}
     </div>
   );
-};
+});
+
+DragDropZone.displayName = 'DragDropZone';
 
 export default DragDropZone;
