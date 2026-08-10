@@ -295,6 +295,159 @@ export const googleDeviceModels = [
   "Pixel"
 ];
 
+// Vivo flagship device models (X, V and iQOO series)
+export const vivoDeviceModels = [
+  "Vivo X200 Pro",
+  "Vivo X200",
+  "Vivo X Fold 3 Pro",
+  "Vivo X100 Ultra",
+  "Vivo X100 Pro",
+  "Vivo X100",
+  "Vivo X Fold 2",
+  "Vivo X90 Pro+",
+  "Vivo X90 Pro",
+  "Vivo X90",
+  "Vivo X Fold+",
+  "Vivo X Fold",
+  "Vivo X80 Pro",
+  "Vivo X80",
+  "Vivo X70 Pro+",
+  "Vivo X70 Pro",
+  "Vivo X70",
+  "Vivo X60 Pro+",
+  "Vivo X60 Pro",
+  "Vivo X60",
+  "Vivo X50 Pro",
+  "Vivo X50",
+  "Vivo V40 Pro",
+  "Vivo V40",
+  "Vivo V30 Pro",
+  "Vivo V30",
+  "Vivo V29 Pro",
+  "Vivo V29",
+  "Vivo V27 Pro",
+  "Vivo V27",
+  "Vivo V25 Pro",
+  "Vivo V25",
+  "Vivo V23 Pro",
+  "Vivo V23",
+  "Vivo V21",
+  "Vivo V20",
+  "iQOO 13",
+  "iQOO 12 Pro",
+  "iQOO 12",
+  "iQOO 11 Pro",
+  "iQOO 11",
+  "iQOO 9 Pro",
+  "iQOO 9",
+  "iQOO Neo 9 Pro",
+  "iQOO Neo 7",
+  "iQOO Z9",
+  "iQOO Z7"
+];
+
+// Oppo flagship device models (Find X, Find N and Reno series)
+export const oppoDeviceModels = [
+  "Oppo Find X8 Pro",
+  "Oppo Find X8",
+  "Oppo Find N5",
+  "Oppo Find X7 Ultra",
+  "Oppo Find X7",
+  "Oppo Find N3 Flip",
+  "Oppo Find N3",
+  "Oppo Find X6 Pro",
+  "Oppo Find X6",
+  "Oppo Find N2 Flip",
+  "Oppo Find N2",
+  "Oppo Find X5 Pro",
+  "Oppo Find X5",
+  "Oppo Find N",
+  "Oppo Find X3 Pro",
+  "Oppo Find X3",
+  "Oppo Find X2 Pro",
+  "Oppo Find X2",
+  "Oppo Find X",
+  "Oppo Reno 12 Pro",
+  "Oppo Reno 12",
+  "Oppo Reno 11 Pro",
+  "Oppo Reno 11",
+  "Oppo Reno 10 Pro+",
+  "Oppo Reno 10 Pro",
+  "Oppo Reno 10",
+  "Oppo Reno 8 Pro",
+  "Oppo Reno 8",
+  "Oppo Reno 7 Pro",
+  "Oppo Reno 7",
+  "Oppo Reno 6 Pro",
+  "Oppo Reno 6"
+];
+
+// Realme flagship device models (GT and number series)
+export const realmeDeviceModels = [
+  "Realme GT 7 Pro",
+  "Realme GT 6",
+  "Realme GT 5 Pro",
+  "Realme GT 5",
+  "Realme GT 3",
+  "Realme GT 2 Pro",
+  "Realme GT 2",
+  "Realme GT Neo 5",
+  "Realme GT Neo 3",
+  "Realme GT Neo 2",
+  "Realme GT Master Edition",
+  "Realme GT",
+  "Realme 13 Pro+",
+  "Realme 13 Pro",
+  "Realme 12 Pro+",
+  "Realme 12 Pro",
+  "Realme 11 Pro+",
+  "Realme 11 Pro",
+  "Realme 10 Pro+",
+  "Realme 10 Pro",
+  "Realme 9 Pro+",
+  "Realme 9 Pro",
+  "Realme 8 Pro",
+  "Realme 8",
+  "Realme Narzo 70 Pro",
+  "Realme Narzo 60 Pro"
+];
+
+// Motorola device models (Edge and Razr series)
+export const motorolaDeviceModels = [
+  "Motorola Edge 50 Ultra",
+  "Motorola Edge 50 Pro",
+  "Motorola Edge 50 Fusion",
+  "Motorola Razr 50 Ultra",
+  "Motorola Razr 50",
+  "Motorola Edge 40 Pro",
+  "Motorola Edge 40",
+  "Motorola Razr 40 Ultra",
+  "Motorola Razr 40",
+  "Motorola Edge 30 Ultra",
+  "Motorola Edge 30 Pro",
+  "Motorola Edge 30",
+  "Motorola Razr 2022",
+  "Motorola Edge 20 Pro",
+  "Motorola Edge 20",
+  "Motorola Razr 5G",
+  "Motorola Edge+",
+  "Motorola Edge",
+  "Moto G84",
+  "Moto G73",
+  "Moto G62"
+];
+
+// Nothing device models (Phone and CMF series)
+export const nothingDeviceModels = [
+  "Nothing Phone (3a) Pro",
+  "Nothing Phone (3a)",
+  "Nothing Phone (2a) Plus",
+  "Nothing Phone (2a)",
+  "Nothing Phone (2)",
+  "Nothing Phone (1)",
+  "CMF Phone 1"
+];
+
 // iPhone device models from iPhone 3G to iPhone 16
 export const iphoneDeviceModels = [
   "iPhone 16 series",
@@ -492,6 +645,86 @@ export const googleDeviceYearMap: { [key: string]: number } = {
   "Pixel 10 Pro Fold": 2025
 };
 
+// Vivo device launch year mapping
+export const vivoDeviceYearMap: { [key: string]: number } = {
+  "Vivo X50": 2020, "Vivo X50 Pro": 2020, "Vivo V20": 2020,
+  "Vivo X60": 2021, "Vivo X60 Pro": 2021, "Vivo X60 Pro+": 2021,
+  "Vivo X70": 2021, "Vivo X70 Pro": 2021, "Vivo X70 Pro+": 2021, "Vivo V21": 2021,
+  "Vivo X80": 2022, "Vivo X80 Pro": 2022, "Vivo X Fold": 2022, "Vivo X Fold+": 2022,
+  "Vivo V23": 2022, "Vivo V23 Pro": 2022, "Vivo V25": 2022, "Vivo V25 Pro": 2022,
+  "iQOO 9": 2022, "iQOO 9 Pro": 2022,
+  "Vivo X90": 2022, "Vivo X90 Pro": 2022, "Vivo X90 Pro+": 2022,
+  "Vivo X Fold 2": 2023, "Vivo V27": 2023, "Vivo V27 Pro": 2023,
+  "Vivo V29": 2023, "Vivo V29 Pro": 2023, "iQOO 11": 2023, "iQOO 11 Pro": 2023,
+  "iQOO Neo 7": 2023, "iQOO Z7": 2023,
+  "Vivo X100": 2023, "Vivo X100 Pro": 2023, "iQOO 12": 2023, "iQOO 12 Pro": 2023,
+  "Vivo X100 Ultra": 2024, "Vivo X Fold 3 Pro": 2024,
+  "Vivo V30": 2024, "Vivo V30 Pro": 2024, "Vivo V40": 2024, "Vivo V40 Pro": 2024,
+  "iQOO Neo 9 Pro": 2024, "iQOO Z9": 2024,
+  "Vivo X200": 2024, "Vivo X200 Pro": 2024, "iQOO 13": 2024
+};
+
+// Oppo device launch year mapping
+export const oppoDeviceYearMap: { [key: string]: number } = {
+  "Oppo Find X": 2018,
+  "Oppo Find X2": 2020, "Oppo Find X2 Pro": 2020,
+  "Oppo Find X3": 2021, "Oppo Find X3 Pro": 2021, "Oppo Find N": 2021,
+  "Oppo Reno 6": 2021, "Oppo Reno 6 Pro": 2021,
+  "Oppo Find X5": 2022, "Oppo Find X5 Pro": 2022,
+  "Oppo Find N2": 2022, "Oppo Find N2 Flip": 2022,
+  "Oppo Reno 7": 2022, "Oppo Reno 7 Pro": 2022,
+  "Oppo Reno 8": 2022, "Oppo Reno 8 Pro": 2022,
+  "Oppo Find X6": 2023, "Oppo Find X6 Pro": 2023,
+  "Oppo Find N3": 2023, "Oppo Find N3 Flip": 2023,
+  "Oppo Reno 10": 2023, "Oppo Reno 10 Pro": 2023, "Oppo Reno 10 Pro+": 2023,
+  "Oppo Find X7": 2024, "Oppo Find X7 Ultra": 2024,
+  "Oppo Reno 11": 2024, "Oppo Reno 11 Pro": 2024,
+  "Oppo Reno 12": 2024, "Oppo Reno 12 Pro": 2024,
+  "Oppo Find X8": 2024, "Oppo Find X8 Pro": 2024,
+  "Oppo Find N5": 2025
+};
+
+// Realme device launch year mapping
+export const realmeDeviceYearMap: { [key: string]: number } = {
+  "Realme 8": 2021, "Realme 8 Pro": 2021,
+  "Realme GT": 2021, "Realme GT Master Edition": 2021, "Realme GT Neo 2": 2021,
+  "Realme GT 2": 2022, "Realme GT 2 Pro": 2022, "Realme GT Neo 3": 2022,
+  "Realme 9 Pro": 2022, "Realme 9 Pro+": 2022,
+  "Realme 10 Pro": 2022, "Realme 10 Pro+": 2022,
+  "Realme GT 3": 2023, "Realme GT Neo 5": 2023,
+  "Realme 11 Pro": 2023, "Realme 11 Pro+": 2023,
+  "Realme GT 5": 2023, "Realme GT 5 Pro": 2023,
+  "Realme 12 Pro": 2024, "Realme 12 Pro+": 2024,
+  "Realme GT 6": 2024, "Realme Narzo 60 Pro": 2023, "Realme Narzo 70 Pro": 2024,
+  "Realme 13 Pro": 2024, "Realme 13 Pro+": 2024,
+  "Realme GT 7 Pro": 2024
+};
+
+// Motorola device launch year mapping
+export const motorolaDeviceYearMap: { [key: string]: number } = {
+  "Motorola Edge": 2020, "Motorola Edge+": 2020, "Motorola Razr 5G": 2020,
+  "Motorola Edge 20": 2021, "Motorola Edge 20 Pro": 2021,
+  "Motorola Edge 30": 2022, "Motorola Edge 30 Pro": 2022,
+  "Motorola Edge 30 Ultra": 2022, "Motorola Razr 2022": 2022, "Moto G62": 2022,
+  "Motorola Edge 40": 2023, "Motorola Edge 40 Pro": 2023,
+  "Motorola Razr 40": 2023, "Motorola Razr 40 Ultra": 2023,
+  "Moto G73": 2023, "Moto G84": 2023,
+  "Motorola Edge 50 Fusion": 2024, "Motorola Edge 50 Pro": 2024,
+  "Motorola Edge 50 Ultra": 2024,
+  "Motorola Razr 50": 2024, "Motorola Razr 50 Ultra": 2024
+};
+
+// Nothing device launch year mapping
+export const nothingDeviceYearMap: { [key: string]: number } = {
+  "Nothing Phone (1)": 2022,
+  "Nothing Phone (2)": 2023,
+  "Nothing Phone (2a)": 2024,
+  "Nothing Phone (2a) Plus": 2024,
+  "CMF Phone 1": 2024,
+  "Nothing Phone (3a)": 2025,
+  "Nothing Phone (3a) Pro": 2025
+};
+
 // Samsung device launch year mapping
 export const samsungDeviceYearMap: { [key: string]: number } = {
   // 2019
@@ -595,6 +828,107 @@ export const samsungDeviceYearMap: { [key: string]: number } = {
   "Galaxy A56": 2025
 };
 
+// Registry of every brand that ships a predefined device list. Drives the
+// "Initialize <brand>" cards on the Add Devices page and the launch-year lookup,
+// so adding a brand here is all that is needed to support it end to end.
+export interface BrandDevicePreset {
+  brand: string;
+  description: string;
+  models: string[];
+  yearMap: { [key: string]: number };
+}
+
+export const brandDevicePresets: BrandDevicePreset[] = [
+  {
+    brand: 'Samsung',
+    description: 'All Samsung Galaxy device series from 2019 and above',
+    models: samsungDeviceModels,
+    yearMap: samsungDeviceYearMap
+  },
+  {
+    brand: 'Apple',
+    description: 'All iPhone device series from iPhone 3G to iPhone 16',
+    models: iphoneDeviceModels,
+    yearMap: iphoneDeviceYearMap
+  },
+  {
+    brand: 'OnePlus',
+    description: 'All OnePlus device models from OnePlus One to OnePlus 13',
+    models: oneplusDeviceModels,
+    yearMap: oneplusDeviceYearMap
+  },
+  {
+    brand: 'Xiaomi',
+    description: 'All Xiaomi/Mi flagship series including Civi and Mix Flip models',
+    models: xiaomiDeviceModels,
+    yearMap: xiaomiDeviceYearMap
+  },
+  {
+    brand: 'Google',
+    description: 'All Google Pixel models from Pixel 1 to Pixel 10, including a/Fold/Tablet variants',
+    models: googleDeviceModels,
+    yearMap: googleDeviceYearMap
+  },
+  {
+    brand: 'Vivo',
+    description: 'Vivo X, V and iQOO series flagships including X Fold models',
+    models: vivoDeviceModels,
+    yearMap: vivoDeviceYearMap
+  },
+  {
+    brand: 'Oppo',
+    description: 'Oppo Find X, Find N and Reno series including foldables',
+    models: oppoDeviceModels,
+    yearMap: oppoDeviceYearMap
+  },
+  {
+    brand: 'Realme',
+    description: 'Realme GT, number and Narzo series flagships',
+    models: realmeDeviceModels,
+    yearMap: realmeDeviceYearMap
+  },
+  {
+    brand: 'Motorola',
+    description: 'Motorola Edge and Razr series including foldables',
+    models: motorolaDeviceModels,
+    yearMap: motorolaDeviceYearMap
+  },
+  {
+    brand: 'Nothing',
+    description: 'Nothing Phone (1) to Phone (3a) Pro and CMF Phone 1',
+    models: nothingDeviceModels,
+    yearMap: nothingDeviceYearMap
+  }
+];
+
+// Look up the launch year for a device series of any preset brand
+export const getDeviceLaunchYear = (brand: string, deviceSeries: string): number | undefined => {
+  const preset = brandDevicePresets.find(p => p.brand === brand);
+  return preset?.yearMap[deviceSeries];
+};
+
+// Initialize the predefined device list for any preset brand
+export const initializeBrandDevices = async (brand: string) => {
+  try {
+    const preset = brandDevicePresets.find(p => p.brand === brand);
+    if (!preset) {
+      throw new Error(`No predefined device list for brand "${brand}"`);
+    }
+
+    const uniqueDevices = [...new Set(preset.models)];
+
+    await setDoc(doc(devicesRef, preset.brand), {
+      devices: uniqueDevices
+    });
+
+    console.log(`${preset.brand} devices initialized successfully`);
+    return uniqueDevices;
+  } catch (error) {
+    console.error(`Error initializing ${brand} devices:`, error);
+    throw error;
+  }
+};
+
 // Function to add a new trending wallpaper
 export const addTrendingWallpaper = async (wallpaper) => {
   try {
@@ -639,7 +973,8 @@ export const addTrendingWallpaperWithId = async (id: string, wallpaper) => {
   }
 };
 
-const BRANDS_WITH_NUMERIC_LAUNCH_YEAR = ['Samsung', 'Apple', 'OnePlus', 'Xiaomi', 'Google'] as const;
+// Every brand with a predefined device list stores launchYear as a number
+const BRANDS_WITH_NUMERIC_LAUNCH_YEAR = brandDevicePresets.map(preset => preset.brand);
 
 /** Parse 4-digit year from strings like "iOS 16 (2022)". */
 export const extractLaunchYearFromIosVersion = (iosVersion: string): number | null => {
@@ -676,7 +1011,7 @@ export const applyLaunchYearForBrand = (
   brand: string,
   wallpaper: Record<string, unknown>
 ): void => {
-  if (!BRANDS_WITH_NUMERIC_LAUNCH_YEAR.includes(brand as (typeof BRANDS_WITH_NUMERIC_LAUNCH_YEAR)[number])) {
+  if (!BRANDS_WITH_NUMERIC_LAUNCH_YEAR.includes(brand)) {
     return;
   }
   const coerced = coerceLaunchYear(

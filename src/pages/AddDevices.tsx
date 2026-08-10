@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { CardContent, Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { updateDevices, initializeSamsungDevices, initializeIphoneDevices, initializeOneplusDevices, initializeXiaomiDevices, initializeGoogleDevices, initializeIosVersions, getAllDevices, Device } from '@/lib/firebase';
+import { updateDevices, initializeBrandDevices, brandDevicePresets, initializeIosVersions, getAllDevices, Device } from '@/lib/firebase';
 import { toast } from 'sonner';
 import { Smartphone, Upload, Eye, Plus, Edit, Trash2 } from 'lucide-react';
 
@@ -17,11 +17,8 @@ const AddDevices = () => {
   const [iosVersion, setIosVersion] = useState('');
   const [iosVersions, setIosVersions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [initializingDevices, setInitializingDevices] = useState(false);
-  const [initializingIphoneDevices, setInitializingIphoneDevices] = useState(false);
-  const [initializingOneplusDevices, setInitializingOneplusDevices] = useState(false);
-  const [initializingXiaomiDevices, setInitializingXiaomiDevices] = useState(false);
-  const [initializingGoogleDevices, setInitializingGoogleDevices] = useState(false);
+  // Brand currently being initialized, so only that card shows a spinner
+  const [initializingBrand, setInitializingBrand] = useState<string | null>(null);
   const [initializingIosVersions, setInitializingIosVersions] = useState(false);
   
   // State for existing devices management
@@ -122,93 +119,21 @@ const AddDevices = () => {
     }
   };
 
-  const handleInitializeSamsungDevices = async () => {
-    setInitializingDevices(true);
-    
-    try {
-      const devices = await initializeSamsungDevices();
-      toast.success(`Initialized ${devices.length} Samsung device series successfully`);
-      
-      // Reload existing devices
-      const devicesData = await getAllDevices();
-      setExistingDevices(devicesData);
-    } catch (error) {
-      console.error('Error initializing Samsung devices:', error);
-      toast.error('Failed to initialize Samsung devices');
-    } finally {
-      setInitializingDevices(false);
-    }
-  };
-
-  const handleInitializeIphoneDevices = async () => {
-    setInitializingIphoneDevices(true);
-    
-    try {
-      const devices = await initializeIphoneDevices();
-      toast.success(`Initialized ${devices.length} iPhone device series successfully`);
-      
-      // Reload existing devices
-      const devicesData = await getAllDevices();
-      setExistingDevices(devicesData);
-    } catch (error) {
-      console.error('Error initializing iPhone devices:', error);
-      toast.error('Failed to initialize iPhone devices');
-    } finally {
-      setInitializingIphoneDevices(false);
-    }
-  };
-
-  const handleInitializeOneplusDevices = async () => {
-    setInitializingOneplusDevices(true);
-    
-    try {
-      const devices = await initializeOneplusDevices();
-      toast.success(`Initialized ${devices.length} OnePlus device models successfully`);
-      
-      // Reload existing devices
-      const devicesData = await getAllDevices();
-      setExistingDevices(devicesData);
-    } catch (error) {
-      console.error('Error initializing OnePlus devices:', error);
-      toast.error('Failed to initialize OnePlus devices');
-    } finally {
-      setInitializingOneplusDevices(false);
-    }
-  };
-
-  const handleInitializeXiaomiDevices = async () => {
-    setInitializingXiaomiDevices(true);
+  const handleInitializeBrand = async (brand: string) => {
+    setInitializingBrand(brand);
 
     try {
-      const devices = await initializeXiaomiDevices();
-      toast.success(`Initialized ${devices.length} Xiaomi device models successfully`);
+      const devices = await initializeBrandDevices(brand);
+      toast.success(`Initialized ${devices.length} ${brand} device models successfully`);
 
       // Reload existing devices
       const devicesData = await getAllDevices();
       setExistingDevices(devicesData);
     } catch (error) {
-      console.error('Error initializing Xiaomi devices:', error);
-      toast.error('Failed to initialize Xiaomi devices');
+      console.error(`Error initializing ${brand} devices:`, error);
+      toast.error(`Failed to initialize ${brand} devices`);
     } finally {
-      setInitializingXiaomiDevices(false);
-    }
-  };
-
-  const handleInitializeGoogleDevices = async () => {
-    setInitializingGoogleDevices(true);
-
-    try {
-      const devices = await initializeGoogleDevices();
-      toast.success(`Initialized ${devices.length} Google Pixel device models successfully`);
-
-      // Reload existing devices
-      const devicesData = await getAllDevices();
-      setExistingDevices(devicesData);
-    } catch (error) {
-      console.error('Error initializing Google devices:', error);
-      toast.error('Failed to initialize Google devices');
-    } finally {
-      setInitializingGoogleDevices(false);
+      setInitializingBrand(null);
     }
   };
 
@@ -345,115 +270,36 @@ const AddDevices = () => {
       
       {/* Quick Initialize Devices */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {/* Initialize Samsung Devices */}
-        <Card className="animate-fade-in" style={{ animationDelay: '200ms' }}>
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold">Initialize Samsung Devices</h3>
-                <p className="text-sm text-muted-foreground">
-                  Quickly add all Samsung device series from 2019 and above
-                </p>
+        {/* One card per brand that ships a predefined device list */}
+        {brandDevicePresets.map((preset, i) => (
+          <Card
+            key={preset.brand}
+            className="animate-fade-in"
+            style={{ animationDelay: `${200 + i * 25}ms` }}
+          >
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold">Initialize {preset.brand} Devices</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {preset.description}
+                  </p>
+                </div>
+                <Button
+                  onClick={() => handleInitializeBrand(preset.brand)}
+                  disabled={initializingBrand !== null}
+                  className="w-full flex items-center gap-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  {initializingBrand === preset.brand
+                    ? 'Initializing...'
+                    : `Initialize ${preset.brand}`}
+                </Button>
               </div>
-              <Button 
-                onClick={handleInitializeSamsungDevices}
-                disabled={initializingDevices}
-                className="w-full flex items-center gap-2"
-              >
-                <Upload className="h-4 w-4" />
-                {initializingDevices ? 'Initializing...' : 'Initialize Samsung'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-        
-        {/* Initialize Apple Devices */}
-        <Card className="animate-fade-in" style={{ animationDelay: '250ms' }}>
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold">Initialize Apple Devices</h3>
-                <p className="text-sm text-muted-foreground">
-                  Quickly add all iPhone device series from iPhone 3G to iPhone 16
-                </p>
-              </div>
-              <Button 
-                onClick={handleInitializeIphoneDevices}
-                disabled={initializingIphoneDevices}
-                className="w-full flex items-center gap-2"
-              >
-                <Upload className="h-4 w-4" />
-                {initializingIphoneDevices ? 'Initializing...' : 'Initialize Apple'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-        
-        {/* Initialize OnePlus Devices */}
-        <Card className="animate-fade-in" style={{ animationDelay: '300ms' }}>
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold">Initialize OnePlus Devices</h3>
-                <p className="text-sm text-muted-foreground">
-                  Quickly add all OnePlus device models from OnePlus One to OnePlus 13
-                </p>
-              </div>
-              <Button 
-                onClick={handleInitializeOneplusDevices}
-                disabled={initializingOneplusDevices}
-                className="w-full flex items-center gap-2"
-              >
-                <Upload className="h-4 w-4" />
-                {initializingOneplusDevices ? 'Initializing...' : 'Initialize OnePlus'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ))}
 
-        {/* Initialize Xiaomi Devices */}
-        <Card className="animate-fade-in" style={{ animationDelay: '325ms' }}>
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold">Initialize Xiaomi Devices</h3>
-                <p className="text-sm text-muted-foreground">
-                  Quickly add all Xiaomi/Mi flagship series including Civi and Mix Flip models
-                </p>
-              </div>
-              <Button
-                onClick={handleInitializeXiaomiDevices}
-                disabled={initializingXiaomiDevices}
-                className="w-full flex items-center gap-2"
-              >
-                <Upload className="h-4 w-4" />
-                {initializingXiaomiDevices ? 'Initializing...' : 'Initialize Xiaomi'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Initialize Google Devices */}
-        <Card className="animate-fade-in" style={{ animationDelay: '340ms' }}>
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold">Initialize Google Devices</h3>
-                <p className="text-sm text-muted-foreground">
-                  Quickly add all Google Pixel models from Pixel 1 to Pixel 10, including a/Fold/Tablet variants
-                </p>
-              </div>
-              <Button
-                onClick={handleInitializeGoogleDevices}
-                disabled={initializingGoogleDevices}
-                className="w-full flex items-center gap-2"
-              >
-                <Upload className="h-4 w-4" />
-                {initializingGoogleDevices ? 'Initializing...' : 'Initialize Google'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Initialize iOS Versions */}
         <Card className="animate-fade-in" style={{ animationDelay: '350ms' }}>

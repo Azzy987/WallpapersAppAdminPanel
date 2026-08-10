@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   addTrendingWallpaperWithId,
   addBrandWallpaperWithId,
@@ -10,11 +10,8 @@ import {
   checkDuplicateWallpaper,
   Category,
   Device,
-  samsungDeviceYearMap,
-  iphoneDeviceYearMap,
-  oneplusDeviceYearMap,
-  xiaomiDeviceYearMap,
-  googleDeviceYearMap,
+  getDeviceLaunchYear,
+  brandDevicePresets,
   coerceLaunchYear,
   extractLaunchYearFromIosVersion
 } from '@/lib/firebase';
@@ -65,6 +62,10 @@ interface WallpaperForm {
   sameLaunchYear?: boolean;
 }
 
+// Brands with a predefined device list drive the wallpaper name from the device series
+const PRESET_BRANDS = new Set(brandDevicePresets.map(preset => preset.brand));
+const usesDeviceSeriesAsName = (brand: string) => PRESET_BRANDS.has(brand);
+
 const initialFormState: WallpaperForm = {
   imageUrl: '',
   wallpaperName: '',
@@ -94,33 +95,6 @@ const initialFormState: WallpaperForm = {
   sameLaunchYear: false
 };
 
-const appleDeviceYearMap: { [key: string]: number } = {
-  "iPhone 16": 2024,
-  "iPhone 15": 2023,
-  "iPhone 14": 2022,
-  "iPhone 13": 2021,
-  "iPhone 12": 2020,
-  "iPhone 11": 2019,
-  "iPhone X": 2017,
-  "iPhone 8": 2017,
-  "iPhone 7": 2016,
-  "iPad Pro": 2021,
-  "iPad Air": 2022,
-  "iPad Mini": 2021
-};
-
-const googleDeviceYearMap: { [key: string]: number } = {
-  "Pixel 9": 2024,
-  "Pixel 8": 2023,
-  "Pixel 7": 2022,
-  "Pixel 6": 2021,
-  "Pixel 5": 2020,
-  "Pixel 4": 2019,
-  "Pixel 3": 2018,
-  "Pixel 2": 2017,
-  "Pixel": 2016
-};
-
 const AddWallpaperForm: React.FC = () => {
   const [wallpaperForms, setWallpaperForms] = useState<WallpaperForm[]>([
     { ...initialFormState }
@@ -134,7 +108,12 @@ const AddWallpaperForm: React.FC = () => {
   const [useSharedCategories, setUseSharedCategories] = useState(false);
   const [wallpaperCount, setWallpaperCount] = useState<number>(3);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
-  const [clearUploadsFunction, setClearUploadsFunction] = useState<(() => void) | null>(null);
+  // Held in a ref: passing a function to a useState setter makes React treat it as a
+  // lazy updater and store its return value instead of the function itself.
+  const clearUploadsRef = useRef<(() => void) | null>(null);
+  const registerClearUploads = useCallback((clearFn: () => void) => {
+    clearUploadsRef.current = clearFn;
+  }, []);
   const [showProgressOverlay, setShowProgressOverlay] = useState<boolean>(false);
   const [visibleForms, setVisibleForms] = useState<number>(10); // Start with 10 visible forms
   const [isProgressiveLoading, setIsProgressiveLoading] = useState<boolean>(false);
@@ -280,8 +259,8 @@ const AddWallpaperForm: React.FC = () => {
         const firstForm = wallpaperForms[0];
         const brandCategory = getSelectedBrandCategory(firstForm);
         
-        // For Samsung, Apple, OnePlus, Xiaomi, and Google categories, use series name if available, otherwise extract from filename
-        if ((brandCategory === 'Samsung' || brandCategory === 'Apple' || brandCategory === 'OnePlus' || brandCategory === 'Xiaomi' || brandCategory === 'Google') && firstForm?.series) {
+        // For preset brand categories, use series name if available, otherwise extract from filename
+        if (usesDeviceSeriesAsName(brandCategory) && firstForm?.series) {
           console.log(`📝 Using ${brandCategory} series name for wallpaper ${index + 1}: "${firstForm.series}"`);
           return firstForm.series;
         }
@@ -463,9 +442,9 @@ const AddWallpaperForm: React.FC = () => {
         
         // Special handling for sameAsCategory checkbox
         if (field === 'sameAsCategory' && value === true) {
-          // If Samsung, Apple, OnePlus, Xiaomi, or Google category and series selected, set wallpaper name to series name
+          // If a preset brand category and series are selected, set wallpaper name to series name
           const brandCategory = getSelectedBrandCategory(updatedForms[0]);
-          if ((brandCategory === 'Samsung' || brandCategory === 'Apple' || brandCategory === 'OnePlus' || brandCategory === 'Xiaomi' || brandCategory === 'Google') && updatedForms[0].series) {
+          if (usesDeviceSeriesAsName(brandCategory) && updatedForms[0].series) {
             updatedForms[0].wallpaperName = updatedForms[0].series;
             
             // Also update all other forms that have sameAsCategory checked
@@ -632,8 +611,8 @@ const AddWallpaperForm: React.FC = () => {
           form.launchYear = year;
         }
         
-        // For Samsung, Apple, OnePlus, Xiaomi, and Google, always auto-set wallpaper name to device series
-        if (brand === 'Samsung' || brand === 'Apple' || brand === 'OnePlus' || brand === 'Xiaomi' || brand === 'Google') {
+        // For preset brands, always auto-set wallpaper name to device series
+        if (usesDeviceSeriesAsName(brand)) {
           form.wallpaperName = deviceSeries;
         }
       } else {
@@ -654,8 +633,8 @@ const AddWallpaperForm: React.FC = () => {
               launchYear: updatedForms[0].launchYear
             };
             
-            // For Samsung, Apple, OnePlus, Xiaomi, and Google, also update wallpaper name to series name
-            if ((brand === 'Samsung' || brand === 'Apple' || brand === 'OnePlus' || brand === 'Xiaomi' || brand === 'Google') && updatedForms[0].series) {
+            // For preset brands, also update wallpaper name to series name
+            if (usesDeviceSeriesAsName(brand) && updatedForms[0].series) {
               updatedForms[i].wallpaperName = updatedForms[0].series;
             }
           }
@@ -670,21 +649,8 @@ const AddWallpaperForm: React.FC = () => {
     try {
       const currentYear = new Date().getFullYear();
       
-      let year = null;
-      if (brand === 'Samsung') {
-        year = samsungDeviceYearMap[deviceSeries] || currentYear;
-      } else if (brand === 'Apple') {
-        year = iphoneDeviceYearMap[deviceSeries] || currentYear;
-      } else if (brand === 'OnePlus') {
-        year = oneplusDeviceYearMap[deviceSeries] || currentYear;
-      } else if (brand === 'Xiaomi') {
-        year = xiaomiDeviceYearMap[deviceSeries] || currentYear;
-      } else if (brand === 'Google') {
-        year = googleDeviceYearMap[deviceSeries] || currentYear;
-      } else {
-        year = currentYear;
-      }
-      
+      const year = getDeviceLaunchYear(brand, deviceSeries) || currentYear;
+
       return year?.toString() || null;
     } catch (error) {
       console.error('Error getting launch year:', error);
@@ -1110,9 +1076,9 @@ const AddWallpaperForm: React.FC = () => {
       
       // Clear S3 uploaded files with a small delay to ensure UI updates
       setTimeout(() => {
-        if (clearUploadsFunction) {
+        if (clearUploadsRef.current) {
           try {
-            clearUploadsFunction();
+            clearUploadsRef.current();
             toast.info('🗂️ S3 upload section cleared - ready for new uploads!');
           } catch (error) {
             console.error('❌ Error clearing S3 uploads:', error);
@@ -1227,15 +1193,15 @@ const AddWallpaperForm: React.FC = () => {
           getSelectedBrandCategory={() => getSelectedBrandCategory(form)}
           showCategories={true}
           onAddMultipleWallpapers={index === 0 ? handleAddMultipleWallpapers : undefined}
-          onClearUploads={index === 0 ? setClearUploadsFunction : undefined}
+          onClearUploads={index === 0 ? registerClearUploads : undefined}
           onThumbnailLoad={() => setThumbnailsLoaded(prev => prev + 1)}
           onThumbnailError={() => setThumbnailsFailed(prev => prev + 1)}
           selectedCategory={
             getSelectedBrandCategory(form) || getSelectedMainCategory(form) || form.selectedCategories[0] || ''
           }
           selectedSubcategory={
-            // For Samsung, Apple, OnePlus, Xiaomi, and Google (brand categories), use the selected device series for S3 path
-            (getSelectedBrandCategory(form) === 'Samsung' || getSelectedBrandCategory(form) === 'Apple' || getSelectedBrandCategory(form) === 'OnePlus' || getSelectedBrandCategory(form) === 'Xiaomi' || getSelectedBrandCategory(form) === 'Google') && form.series
+            // For preset brand categories, use the selected device series for S3 path
+            usesDeviceSeriesAsName(getSelectedBrandCategory(form)) && form.series
               ? form.series
               : form.subCategory
           }
