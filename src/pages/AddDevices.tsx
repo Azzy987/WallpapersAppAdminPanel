@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { CardContent, Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { updateDevices, initializeSamsungDevices, initializeIphoneDevices, initializeOneplusDevices, initializeXiaomiDevices, initializeIosVersions, getAllDevices, Device } from '@/lib/firebase';
+import { updateDevices, initializeSamsungDevices, initializeIphoneDevices, initializeOneplusDevices, initializeXiaomiDevices, initializeGoogleDevices, initializeIosVersions, getAllDevices, Device } from '@/lib/firebase';
 import { toast } from 'sonner';
 import { Smartphone, Upload, Eye, Plus, Edit, Trash2 } from 'lucide-react';
 
@@ -21,6 +21,7 @@ const AddDevices = () => {
   const [initializingIphoneDevices, setInitializingIphoneDevices] = useState(false);
   const [initializingOneplusDevices, setInitializingOneplusDevices] = useState(false);
   const [initializingXiaomiDevices, setInitializingXiaomiDevices] = useState(false);
+  const [initializingGoogleDevices, setInitializingGoogleDevices] = useState(false);
   const [initializingIosVersions, setInitializingIosVersions] = useState(false);
   
   // State for existing devices management
@@ -190,6 +191,24 @@ const AddDevices = () => {
       toast.error('Failed to initialize Xiaomi devices');
     } finally {
       setInitializingXiaomiDevices(false);
+    }
+  };
+
+  const handleInitializeGoogleDevices = async () => {
+    setInitializingGoogleDevices(true);
+
+    try {
+      const devices = await initializeGoogleDevices();
+      toast.success(`Initialized ${devices.length} Google Pixel device models successfully`);
+
+      // Reload existing devices
+      const devicesData = await getAllDevices();
+      setExistingDevices(devicesData);
+    } catch (error) {
+      console.error('Error initializing Google devices:', error);
+      toast.error('Failed to initialize Google devices');
+    } finally {
+      setInitializingGoogleDevices(false);
     }
   };
 
@@ -409,6 +428,28 @@ const AddDevices = () => {
               >
                 <Upload className="h-4 w-4" />
                 {initializingXiaomiDevices ? 'Initializing...' : 'Initialize Xiaomi'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Initialize Google Devices */}
+        <Card className="animate-fade-in" style={{ animationDelay: '340ms' }}>
+          <CardContent className="p-6">
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold">Initialize Google Devices</h3>
+                <p className="text-sm text-muted-foreground">
+                  Quickly add all Google Pixel models from Pixel 1 to Pixel 10, including a/Fold/Tablet variants
+                </p>
+              </div>
+              <Button
+                onClick={handleInitializeGoogleDevices}
+                disabled={initializingGoogleDevices}
+                className="w-full flex items-center gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                {initializingGoogleDevices ? 'Initializing...' : 'Initialize Google'}
               </Button>
             </div>
           </CardContent>

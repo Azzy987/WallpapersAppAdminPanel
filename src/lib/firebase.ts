@@ -257,6 +257,44 @@ export const xiaomiDeviceModels = [
   "Xiaomi Mi 1"
 ];
 
+// Google Pixel device models from Pixel 1 to Pixel 10, including a/Fold/Tablet variants
+export const googleDeviceModels = [
+  "Pixel 10 Pro Fold",
+  "Pixel 10 Pro XL",
+  "Pixel 10 Pro",
+  "Pixel 10",
+  "Pixel 9a",
+  "Pixel 9 Pro Fold",
+  "Pixel 9 Pro XL",
+  "Pixel 9 Pro",
+  "Pixel 9",
+  "Pixel 8a",
+  "Pixel Tablet",
+  "Pixel 8 Pro",
+  "Pixel 8",
+  "Pixel Fold",
+  "Pixel 7a",
+  "Pixel 7 Pro",
+  "Pixel 7",
+  "Pixel 6a",
+  "Pixel 6 Pro",
+  "Pixel 6",
+  "Pixel 5a",
+  "Pixel 5",
+  "Pixel 4a 5G",
+  "Pixel 4a",
+  "Pixel 4 XL",
+  "Pixel 4",
+  "Pixel 3a XL",
+  "Pixel 3a",
+  "Pixel 3 XL",
+  "Pixel 3",
+  "Pixel 2 XL",
+  "Pixel 2",
+  "Pixel XL",
+  "Pixel"
+];
+
 // iPhone device models from iPhone 3G to iPhone 16
 export const iphoneDeviceModels = [
   "iPhone 16 series",
@@ -416,6 +454,44 @@ export const xiaomiDeviceYearMap: { [key: string]: number } = {
   "Mi Mix Flip 2": 2025
 };
 
+// Google Pixel device launch year mapping
+export const googleDeviceYearMap: { [key: string]: number } = {
+  "Pixel": 2016,
+  "Pixel XL": 2016,
+  "Pixel 2": 2017,
+  "Pixel 2 XL": 2017,
+  "Pixel 3": 2018,
+  "Pixel 3 XL": 2018,
+  "Pixel 3a": 2019,
+  "Pixel 3a XL": 2019,
+  "Pixel 4": 2019,
+  "Pixel 4 XL": 2019,
+  "Pixel 4a": 2020,
+  "Pixel 4a 5G": 2020,
+  "Pixel 5": 2020,
+  "Pixel 5a": 2021,
+  "Pixel 6": 2021,
+  "Pixel 6 Pro": 2021,
+  "Pixel 6a": 2022,
+  "Pixel 7": 2022,
+  "Pixel 7 Pro": 2022,
+  "Pixel 7a": 2023,
+  "Pixel Fold": 2023,
+  "Pixel 8": 2023,
+  "Pixel 8 Pro": 2023,
+  "Pixel Tablet": 2023,
+  "Pixel 8a": 2024,
+  "Pixel 9": 2024,
+  "Pixel 9 Pro": 2024,
+  "Pixel 9 Pro XL": 2024,
+  "Pixel 9 Pro Fold": 2024,
+  "Pixel 9a": 2025,
+  "Pixel 10": 2025,
+  "Pixel 10 Pro": 2025,
+  "Pixel 10 Pro XL": 2025,
+  "Pixel 10 Pro Fold": 2025
+};
+
 // Samsung device launch year mapping
 export const samsungDeviceYearMap: { [key: string]: number } = {
   // 2019
@@ -563,7 +639,7 @@ export const addTrendingWallpaperWithId = async (id: string, wallpaper) => {
   }
 };
 
-const BRANDS_WITH_NUMERIC_LAUNCH_YEAR = ['Samsung', 'Apple', 'OnePlus', 'Xiaomi'] as const;
+const BRANDS_WITH_NUMERIC_LAUNCH_YEAR = ['Samsung', 'Apple', 'OnePlus', 'Xiaomi', 'Google'] as const;
 
 /** Parse 4-digit year from strings like "iOS 16 (2022)". */
 export const extractLaunchYearFromIosVersion = (iosVersion: string): number | null => {
@@ -1793,6 +1869,24 @@ export const initializeXiaomiDevices = async () => {
     return uniqueXiaomiDevices;
   } catch (error) {
     console.error('Error initializing Xiaomi devices:', error);
+    throw error;
+  }
+};
+
+// Function to initialize Google Pixel devices from the predefined list
+export const initializeGoogleDevices = async () => {
+  try {
+    // Remove duplicates from the Google device models
+    const uniqueGoogleDevices = [...new Set(googleDeviceModels)];
+
+    await setDoc(doc(devicesRef, 'Google'), {
+      devices: uniqueGoogleDevices
+    });
+
+    console.log('Google devices initialized successfully');
+    return uniqueGoogleDevices;
+  } catch (error) {
+    console.error('Error initializing Google devices:', error);
     throw error;
   }
 };

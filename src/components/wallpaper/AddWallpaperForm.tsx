@@ -14,6 +14,7 @@ import {
   iphoneDeviceYearMap,
   oneplusDeviceYearMap,
   xiaomiDeviceYearMap,
+  googleDeviceYearMap,
   coerceLaunchYear,
   extractLaunchYearFromIosVersion
 } from '@/lib/firebase';
@@ -279,8 +280,8 @@ const AddWallpaperForm: React.FC = () => {
         const firstForm = wallpaperForms[0];
         const brandCategory = getSelectedBrandCategory(firstForm);
         
-        // For Samsung, Apple, OnePlus, and Xiaomi categories, use series name if available, otherwise extract from filename
-        if ((brandCategory === 'Samsung' || brandCategory === 'Apple' || brandCategory === 'OnePlus' || brandCategory === 'Xiaomi') && firstForm?.series) {
+        // For Samsung, Apple, OnePlus, Xiaomi, and Google categories, use series name if available, otherwise extract from filename
+        if ((brandCategory === 'Samsung' || brandCategory === 'Apple' || brandCategory === 'OnePlus' || brandCategory === 'Xiaomi' || brandCategory === 'Google') && firstForm?.series) {
           console.log(`📝 Using ${brandCategory} series name for wallpaper ${index + 1}: "${firstForm.series}"`);
           return firstForm.series;
         }
@@ -462,9 +463,9 @@ const AddWallpaperForm: React.FC = () => {
         
         // Special handling for sameAsCategory checkbox
         if (field === 'sameAsCategory' && value === true) {
-          // If Samsung, Apple, OnePlus, or Xiaomi category and series selected, set wallpaper name to series name
+          // If Samsung, Apple, OnePlus, Xiaomi, or Google category and series selected, set wallpaper name to series name
           const brandCategory = getSelectedBrandCategory(updatedForms[0]);
-          if ((brandCategory === 'Samsung' || brandCategory === 'Apple' || brandCategory === 'OnePlus' || brandCategory === 'Xiaomi') && updatedForms[0].series) {
+          if ((brandCategory === 'Samsung' || brandCategory === 'Apple' || brandCategory === 'OnePlus' || brandCategory === 'Xiaomi' || brandCategory === 'Google') && updatedForms[0].series) {
             updatedForms[0].wallpaperName = updatedForms[0].series;
             
             // Also update all other forms that have sameAsCategory checked
@@ -631,8 +632,8 @@ const AddWallpaperForm: React.FC = () => {
           form.launchYear = year;
         }
         
-        // For Samsung, Apple, OnePlus, and Xiaomi, always auto-set wallpaper name to device series
-        if (brand === 'Samsung' || brand === 'Apple' || brand === 'OnePlus' || brand === 'Xiaomi') {
+        // For Samsung, Apple, OnePlus, Xiaomi, and Google, always auto-set wallpaper name to device series
+        if (brand === 'Samsung' || brand === 'Apple' || brand === 'OnePlus' || brand === 'Xiaomi' || brand === 'Google') {
           form.wallpaperName = deviceSeries;
         }
       } else {
@@ -653,8 +654,8 @@ const AddWallpaperForm: React.FC = () => {
               launchYear: updatedForms[0].launchYear
             };
             
-            // For Samsung, Apple, OnePlus, and Xiaomi, also update wallpaper name to series name
-            if ((brand === 'Samsung' || brand === 'Apple' || brand === 'OnePlus' || brand === 'Xiaomi') && updatedForms[0].series) {
+            // For Samsung, Apple, OnePlus, Xiaomi, and Google, also update wallpaper name to series name
+            if ((brand === 'Samsung' || brand === 'Apple' || brand === 'OnePlus' || brand === 'Xiaomi' || brand === 'Google') && updatedForms[0].series) {
               updatedForms[i].wallpaperName = updatedForms[0].series;
             }
           }
@@ -678,6 +679,8 @@ const AddWallpaperForm: React.FC = () => {
         year = oneplusDeviceYearMap[deviceSeries] || currentYear;
       } else if (brand === 'Xiaomi') {
         year = xiaomiDeviceYearMap[deviceSeries] || currentYear;
+      } else if (brand === 'Google') {
+        year = googleDeviceYearMap[deviceSeries] || currentYear;
       } else {
         year = currentYear;
       }
@@ -1231,8 +1234,8 @@ const AddWallpaperForm: React.FC = () => {
             getSelectedBrandCategory(form) || getSelectedMainCategory(form) || form.selectedCategories[0] || ''
           }
           selectedSubcategory={
-            // For Samsung, Apple, OnePlus, and Xiaomi (brand categories), use the selected device series for S3 path
-            (getSelectedBrandCategory(form) === 'Samsung' || getSelectedBrandCategory(form) === 'Apple' || getSelectedBrandCategory(form) === 'OnePlus' || getSelectedBrandCategory(form) === 'Xiaomi') && form.series
+            // For Samsung, Apple, OnePlus, Xiaomi, and Google (brand categories), use the selected device series for S3 path
+            (getSelectedBrandCategory(form) === 'Samsung' || getSelectedBrandCategory(form) === 'Apple' || getSelectedBrandCategory(form) === 'OnePlus' || getSelectedBrandCategory(form) === 'Xiaomi' || getSelectedBrandCategory(form) === 'Google') && form.series
               ? form.series
               : form.subCategory
           }
