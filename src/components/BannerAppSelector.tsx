@@ -2,7 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getExistingBannerSubcollections, getDefaultSubcollectionSuggestions } from '@/lib/firebase';
+import {
+  getExistingBannerSubcollections,
+  getDefaultSubcollectionSuggestions,
+  getBannerBrandApps,
+  registerExistingBannerSubcollection,
+} from '@/lib/firebase';
+import { toast } from 'sonner';
 
 interface BannerAppSelectorProps {
   selectedBrandApp: string;
@@ -20,15 +26,46 @@ interface BannerAppSelectorProps {
   className?: string;
 }
 
-// Available brand apps for banner selection
-export const AVAILABLE_BRAND_APPS = [
-  { id: 'WallezWallpapers', name: 'Wallez (iOS)', description: 'Wallez glass wallpapers iOS app banners' },
-  { id: 'SamsungWallpapers', name: 'Samsung Wallpapers', description: 'Samsung wallpaper app banners' },
-  { id: 'OnePlusWallpapers', name: 'OnePlus Wallpapers', description: 'OnePlus wallpaper app banners' },
-  { id: 'XiaomiWallpapers', name: 'Xiaomi Wallpapers', description: 'Xiaomi wallpaper app banners' },
-  { id: 'iPhoneWallpapers', name: 'iPhone Wallpapers', description: 'Apple/iPhone wallpaper app banners' },
-  { id: 'custom', name: 'Custom App', description: 'Custom brand or app-specific banners' }
-];
+// Descriptions for the long-standing brand apps. Any other app found in the
+// Banners collection is listed too, so newly created ones show up without a
+// code change.
+const KNOWN_BRAND_APP_DESCRIPTIONS: Record<string, { name: string; description: string }> = {
+  WallezWallpapers: { name: 'Wallez (iOS)', description: 'Wallez glass wallpapers iOS app banners' },
+  SamsungWallpapers: { name: 'Samsung Wallpapers', description: 'Samsung wallpaper app banners' },
+  OnePlusWallpapers: { name: 'OnePlus Wallpapers', description: 'OnePlus wallpaper app banners' },
+  XiaomiWallpapers: { name: 'Xiaomi Wallpapers', description: 'Xiaomi wallpaper app banners' },
+  iPhoneWallpapers: { name: 'iPhone Wallpapers', description: 'Apple/iPhone wallpaper app banners' },
+};
+
+const CUSTOM_BRAND_APP = { id: 'custom', name: 'Custom App', description: 'Custom brand or app-specific banners' };
+
+export interface BrandAppOption {
+  id: string;
+  name: string;
+  description: string;
+}
+
+/** Merge the brand apps that exist in Firestore with the known descriptions. */
+export const buildBrandAppOptions = (appIds: string[]): BrandAppOption[] => {
+  const options = appIds.map(id => ({
+    id,
+    name: KNOWN_BRAND_APP_DESCRIPTIONS[id]?.name ?? id,
+    description: KNOWN_BRAND_APP_DESCRIPTIONS[id]?.description ?? 'Banner collection from Firestore',
+  }));
+
+  // Keep any known app that has no document yet, so the list never shrinks
+  for (const [id, meta] of Object.entries(KNOWN_BRAND_APP_DESCRIPTIONS)) {
+    if (!options.some(option => option.id === id)) {
+      options.push({ id, ...meta });
+    }
+  }
+
+  options.sort((a, b) => a.name.localeCompare(b.name));
+  return [...options, CUSTOM_BRAND_APP];
+};
+
+// Fallback list used until the live apps load
+export const AVAILABLE_BRAND_APPS: BrandAppOption[] = buildBrandAppOptions([]);
 
 
 const BannerAppSelector: React.FC<BannerAppSelectorProps> = ({
@@ -50,6 +87,45 @@ const BannerAppSelector: React.FC<BannerAppSelectorProps> = ({
   const [showCreateNew, setShowCreateNew] = useState(false);
   const [existingSubcollections, setExistingSubcollections] = useState<string[]>([]);
   const [loadingSubcollections, setLoadingSubcollections] = useState(false);
+  const [brandAppOptions, setBrandAppOptions] = useState<BrandAppOption[]>(AVAILABLE_BRAND_APPS);
+  const [linkingExisting, setLinkingExisting] = useState(false);
+
+  // Track a subcollection that already exists in Firestore but is not on the
+  // brand app document, so it shows up in the picker from now on
+  const handleLinkExisting = async () => {
+    const name = subcollectionName.trim();
+    if (!selectedBrandApp || selectedBrandApp === 'custom' || !name) return;
+
+    setLinkingExisting(true);
+    try {
+      const result = await registerExistingBannerSubcollection(selectedBrandApp, name);
+      if (result.registered) {
+        setExistingSubcollections(await getExistingBannerSubcollections(selectedBrandApp));
+        setShowCreateNew(false);
+        onSubcollectionNameChange(name);
+        toast.success(`Linked "${name}" — it will now appear in the list`);
+      } else {
+        toast.error(result.reason || 'Could not find that subcollection');
+      }
+    } catch {
+      toast.error('Failed to link subcollection');
+    } finally {
+      setLinkingExisting(false);
+    }
+  };
+
+  // Load the brand apps that actually exist in the Banners collection
+  useEffect(() => {
+    let cancelled = false;
+    getBannerBrandApps()
+      .then(appIds => {
+        if (!cancelled) setBrandAppOptions(buildBrandAppOptions(appIds));
+      })
+      .catch(error => {
+        console.error('Error loading banner brand apps:', error);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const suggestions = getDefaultSubcollectionSuggestions(selectedBrandApp);
 
@@ -158,7 +234,7 @@ const BannerAppSelector: React.FC<BannerAppSelectorProps> = ({
             <SelectValue placeholder="Select brand app for banner" />
           </SelectTrigger>
           <SelectContent>
-            {AVAILABLE_BRAND_APPS.map((app) => (
+            {brandAppOptions.map((app) => (
               <SelectItem key={app.id} value={app.id}>
                 <div className="flex flex-col">
                   <span className="font-medium">{app.name}</span>
@@ -236,6 +312,25 @@ const BannerAppSelector: React.FC<BannerAppSelectorProps> = ({
               placeholder="Enter new subcollection name (e.g., 'OnePlus7Banners')"
               className="w-full"
             />
+
+            {/* A subcollection made directly in the Firestore console is not tracked
+                on the brand app doc, and the client SDK cannot list subcollections,
+                so offer to look it up and track it by name. */}
+            {selectedBrandApp && selectedBrandApp !== 'custom' && subcollectionName.trim() &&
+              !existingSubcollections.includes(subcollectionName.trim()) && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleLinkExisting}
+                  disabled={linkingExisting}
+                  className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200 disabled:opacity-50"
+                >
+                  {linkingExisting
+                    ? 'Checking…'
+                    : `Already exists in Firestore? Link "${subcollectionName.trim()}"`}
+                </button>
+              </div>
+            )}
 
             {/* Show suggestions */}
             {suggestions.length > 0 && (

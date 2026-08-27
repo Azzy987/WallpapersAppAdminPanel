@@ -1246,30 +1246,39 @@ export const getExistingBannerSubcollections = async (brandApp: string): Promise
       return [];
     }
 
-    // Try to get metadata about existing subcollections
+    // Start from the tracked list, which every in-app banner write keeps updated
     const data = bannerDocSnapshot.data();
-    if (data && data.subcollections && Array.isArray(data.subcollections)) {
-      console.log(`Found ${data.subcollections.length} tracked subcollections for ${brandApp}:`, data.subcollections);
-      return data.subcollections;
-    }
+    const tracked: string[] =
+      data && Array.isArray(data.subcollections) ? data.subcollections : [];
 
-    // Fallback: Try common subcollection names based on brand
-    const commonSubcollections = getDefaultSubcollectionSuggestions(brandApp);
-    const existingSubcollections: string[] = [];
+    // The client SDK cannot enumerate subcollections, so a subcollection created
+    // straight in the Firestore console is not in the tracked list. Probe the
+    // common names too and merge anything that actually holds documents.
+    const candidates = [...new Set([...tracked, ...getDefaultSubcollectionSuggestions(brandApp)])];
+    const probed: string[] = [];
 
-    // Check if these common subcollections exist by trying to read them
-    for (const subcollectionName of commonSubcollections) {
-      try {
-        const subcollectionRef = collection(bannerDocRef, subcollectionName);
-        const subcollectionSnapshot = await getDocs(query(subcollectionRef, limit(1)));
-
-        if (!subcollectionSnapshot.empty) {
-          existingSubcollections.push(subcollectionName);
+    await Promise.all(
+      candidates.map(async subcollectionName => {
+        if (tracked.includes(subcollectionName)) return;
+        try {
+          const subcollectionRef = collection(bannerDocRef, subcollectionName);
+          const subcollectionSnapshot = await getDocs(query(subcollectionRef, limit(1)));
+          if (!subcollectionSnapshot.empty) {
+            probed.push(subcollectionName);
+          }
+        } catch (error) {
+          // Ignore errors for non-existent subcollections
+          console.log(`Subcollection ${subcollectionName} does not exist or is empty`);
         }
-      } catch (error) {
-        // Ignore errors for non-existent subcollections
-        console.log(`Subcollection ${subcollectionName} does not exist or is empty`);
-      }
+      })
+    );
+
+    const existingSubcollections = [...tracked, ...probed];
+
+    // Fold anything newly discovered back into the tracked list so it is found
+    // directly next time
+    for (const subcollectionName of probed) {
+      await updateBrandAppSubcollections(brandApp, subcollectionName);
     }
 
     console.log(`Found ${existingSubcollections.length} existing subcollections for ${brandApp}:`, existingSubcollections);
@@ -1278,6 +1287,44 @@ export const getExistingBannerSubcollections = async (brandApp: string): Promise
   } catch (error) {
     console.error("Error getting existing banner subcollections: ", error);
     return [];
+  }
+};
+
+/**
+ * Register a subcollection that already exists in Firestore but is not tracked
+ * on the brand app document — typically one created straight in the console.
+ * The client SDK cannot list subcollections, so the tracked array is what makes
+ * a subcollection discoverable in the pickers.
+ *
+ * Verifies the subcollection actually holds documents before tracking it, so a
+ * typo does not add a phantom entry.
+ */
+export const registerExistingBannerSubcollection = async (
+  brandApp: string,
+  subcollectionName: string
+): Promise<{ registered: boolean; reason?: string }> => {
+  try {
+    const trimmed = subcollectionName.trim();
+    if (!brandApp || !trimmed) {
+      return { registered: false, reason: 'Brand app and subcollection name are required' };
+    }
+
+    const bannerDocRef = doc(db, 'Banners', brandApp);
+    const subcollectionRef = collection(bannerDocRef, trimmed);
+    const snapshot = await getDocs(query(subcollectionRef, limit(1)));
+
+    if (snapshot.empty) {
+      return {
+        registered: false,
+        reason: `No documents found in Banners/${brandApp}/${trimmed}`,
+      };
+    }
+
+    await updateBrandAppSubcollections(brandApp, trimmed);
+    return { registered: true };
+  } catch (error) {
+    console.error('Error registering existing banner subcollection:', error);
+    throw error;
   }
 };
 
@@ -1293,6 +1340,7 @@ export const getDefaultSubcollectionSuggestions = (brandApp: string): string[] =
     case 'XiaomiWallpapers':
       return ['XiaomiMiBanners', 'XiaomiCiviBanners', 'XiaomiMixBanners'];
     case 'AppleWallpapers':
+    case 'iPhoneWallpapers':
       return ['iPhone14Banners', 'iPhone15Banners', 'iPhone16Banners', 'iPhone17Banners'];
     default:
       return ['AppBanners', 'CustomBanners'];
