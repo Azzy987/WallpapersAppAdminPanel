@@ -2387,6 +2387,78 @@ export const attachAppPromoToBanner = async (
   }
 };
 
+/**
+ * Copy existing banners from one brand app's subcollection into another's.
+ *
+ * Each banner is written as an independent document in the target: it keeps the
+ * source document id (the wallpaper id) so the same wallpaper is not duplicated
+ * if copied twice, but later edits or deletions in the source do not affect it.
+ * Returns the ids that were copied and any that were skipped because a banner
+ * with the same id already existed in the target.
+ */
+export const copyBannersBetweenApps = async (
+  source: { brandApp: string; subcollection: string },
+  target: { brandApp: string; subcollection: string },
+  bannerIds: string[],
+  options: { overwriteExisting?: boolean } = {}
+): Promise<{ copied: string[]; skipped: string[] }> => {
+  try {
+    if (
+      source.brandApp === target.brandApp &&
+      source.subcollection === target.subcollection
+    ) {
+      throw new Error('Source and target subcollection are the same');
+    }
+
+    const sourceCollection = collection(doc(db, 'Banners', source.brandApp), source.subcollection);
+    const targetCollection = collection(doc(db, 'Banners', target.brandApp), target.subcollection);
+
+    const copied: string[] = [];
+    const skipped: string[] = [];
+
+    for (const bannerId of bannerIds) {
+      const sourceSnap = await getDoc(doc(sourceCollection, bannerId));
+      if (!sourceSnap.exists()) {
+        skipped.push(bannerId);
+        continue;
+      }
+
+      const targetRef = doc(targetCollection, bannerId);
+      if (!options.overwriteExisting) {
+        const targetSnap = await getDoc(targetRef);
+        if (targetSnap.exists()) {
+          skipped.push(bannerId);
+          continue;
+        }
+      }
+
+      // Drop the source timestamp so the copy is stamped when it was attached here
+      const { timestamp: _sourceTimestamp, ...bannerData } = sourceSnap.data();
+
+      await setDoc(targetRef, {
+        ...bannerData,
+        timestamp: serverTimestamp()
+      });
+      copied.push(bannerId);
+    }
+
+    if (copied.length > 0) {
+      await updateBrandAppSubcollections(target.brandApp, target.subcollection);
+    }
+
+    console.log(
+      `Copied ${copied.length} banner(s) from Banners/${source.brandApp}/${source.subcollection} ` +
+      `to Banners/${target.brandApp}/${target.subcollection}` +
+      (skipped.length > 0 ? ` (${skipped.length} skipped)` : '')
+    );
+
+    return { copied, skipped };
+  } catch (error) {
+    console.error('Error copying banners between apps:', error);
+    throw error;
+  }
+};
+
 /** Delete a single document from Banners/{brandApp}/{subcollection}/{id} */
 export const deleteBannerDoc = async (
   brandApp: string,

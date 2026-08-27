@@ -17,9 +17,10 @@ import {
   getBannerBrandApps,
   attachAppPromoToBanner,
   deleteBannerDoc,
+  copyBannersBetweenApps,
 } from '@/lib/firebase';
 import { toast } from 'sonner';
-import { Layers, Trash2, Loader2, Plus, Link2, ImageIcon, RefreshCw } from 'lucide-react';
+import { Layers, Trash2, Loader2, Plus, Link2, ImageIcon, RefreshCw, Copy, ArrowRight, Check } from 'lucide-react';
 
 
 async function uploadImageToS3(file: File): Promise<string> {
@@ -454,6 +455,369 @@ const AttachToAppTab: React.FC = () => {
   );
 };
 
+// ─── Copy Between Apps Tab ────────────────────────────────────────────────────
+interface BannerDoc {
+  id: string;
+  bannerName?: string;
+  bannerUrl?: string;
+  bannerType?: string;
+  appUrl?: string;
+}
+
+const CopyBetweenAppsTab: React.FC = () => {
+  const [brandApps, setBrandApps] = useState<string[]>([]);
+  const [loadingApps, setLoadingApps] = useState(false);
+
+  // Source
+  const [sourceApp, setSourceApp] = useState('');
+  const [sourceSubs, setSourceSubs] = useState<string[]>([]);
+  const [sourceSub, setSourceSub] = useState('');
+  const [sourceBanners, setSourceBanners] = useState<BannerDoc[]>([]);
+  const [loadingSourceSubs, setLoadingSourceSubs] = useState(false);
+  const [loadingSourceBanners, setLoadingSourceBanners] = useState(false);
+
+  // Target
+  const [targetApp, setTargetApp] = useState('');
+  const [targetSubs, setTargetSubs] = useState<string[]>([]);
+  const [targetSub, setTargetSub] = useState('');
+  const [newTargetSub, setNewTargetSub] = useState('');
+  const [useNewSub, setUseNewSub] = useState(false);
+  const [loadingTargetSubs, setLoadingTargetSubs] = useState(false);
+  const [existingTargetIds, setExistingTargetIds] = useState<Set<string>>(new Set());
+
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [copying, setCopying] = useState(false);
+
+  useEffect(() => {
+    setLoadingApps(true);
+    getBannerBrandApps()
+      .then(setBrandApps)
+      .catch(() => toast.error('Failed to load brand apps'))
+      .finally(() => setLoadingApps(false));
+  }, []);
+
+  const resolvedTargetSub = useNewSub ? newTargetSub.trim() : targetSub;
+
+  const handleSourceAppChange = async (app: string) => {
+    setSourceApp(app);
+    setSourceSub('');
+    setSourceSubs([]);
+    setSourceBanners([]);
+    setSelected(new Set());
+    if (!app) return;
+    setLoadingSourceSubs(true);
+    try {
+      setSourceSubs(await getExistingBannerSubcollections(app));
+    } catch {
+      toast.error('Failed to load subcollections');
+    } finally {
+      setLoadingSourceSubs(false);
+    }
+  };
+
+  const handleSourceSubChange = async (sub: string) => {
+    setSourceSub(sub);
+    setSourceBanners([]);
+    setSelected(new Set());
+    if (!sourceApp || !sub) return;
+    setLoadingSourceBanners(true);
+    try {
+      setSourceBanners(await getBannersByBrandAndSubcollection(sourceApp, sub));
+    } catch {
+      toast.error('Failed to load banners');
+    } finally {
+      setLoadingSourceBanners(false);
+    }
+  };
+
+  const handleTargetAppChange = async (app: string) => {
+    setTargetApp(app);
+    setTargetSub('');
+    setTargetSubs([]);
+    setExistingTargetIds(new Set());
+    if (!app) return;
+    setLoadingTargetSubs(true);
+    try {
+      setTargetSubs(await getExistingBannerSubcollections(app));
+    } catch {
+      toast.error('Failed to load subcollections');
+    } finally {
+      setLoadingTargetSubs(false);
+    }
+  };
+
+  // Track which banners the target already has, so duplicates are visible up front
+  useEffect(() => {
+    if (!targetApp || !resolvedTargetSub) {
+      setExistingTargetIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    getBannersByBrandAndSubcollection(targetApp, resolvedTargetSub)
+      .then(docs => {
+        if (!cancelled) setExistingTargetIds(new Set(docs.map(d => d.id)));
+      })
+      .catch(() => {
+        if (!cancelled) setExistingTargetIds(new Set());
+      });
+    return () => { cancelled = true; };
+  }, [targetApp, resolvedTargetSub]);
+
+  const isSameLocation =
+    sourceApp === targetApp && sourceSub === resolvedTargetSub && !!sourceSub;
+
+  const toggle = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const selectableIds = sourceBanners
+    .map(b => b.id)
+    .filter(id => !existingTargetIds.has(id));
+
+  const toggleAll = () => {
+    setSelected(prev =>
+      prev.size === selectableIds.length ? new Set() : new Set(selectableIds)
+    );
+  };
+
+  const handleCopy = async () => {
+    if (!sourceApp || !sourceSub) { toast.error('Select a source app and subcollection'); return; }
+    if (!targetApp) { toast.error('Select a target app'); return; }
+    if (!resolvedTargetSub) { toast.error('Select or name a target subcollection'); return; }
+    if (isSameLocation) { toast.error('Source and target are the same'); return; }
+    if (selected.size === 0) { toast.error('Select at least one banner'); return; }
+
+    setCopying(true);
+    try {
+      const { copied, skipped } = await copyBannersBetweenApps(
+        { brandApp: sourceApp, subcollection: sourceSub },
+        { brandApp: targetApp, subcollection: resolvedTargetSub },
+        Array.from(selected)
+      );
+
+      if (copied.length > 0) {
+        toast.success(
+          `Copied ${copied.length} banner(s) to ${targetApp} / ${resolvedTargetSub}` +
+          (skipped.length > 0 ? ` — ${skipped.length} already existed` : '')
+        );
+      } else {
+        toast.info('Nothing copied — those banners already exist in the target');
+      }
+
+      setSelected(new Set());
+      const docs = await getBannersByBrandAndSubcollection(targetApp, resolvedTargetSub);
+      setExistingTargetIds(new Set(docs.map(d => d.id)));
+      if (useNewSub && copied.length > 0) {
+        setTargetSubs(await getExistingBannerSubcollections(targetApp));
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to copy banners');
+    } finally {
+      setCopying(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Step 1 — Copy From</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <Label>Source App</Label>
+            {loadingApps ? (
+              <div className="flex items-center gap-2 text-muted-foreground text-sm h-10">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+              </div>
+            ) : (
+              <Select value={sourceApp} onValueChange={handleSourceAppChange}>
+                <SelectTrigger><SelectValue placeholder="Choose source app" /></SelectTrigger>
+                <SelectContent>
+                  {brandApps.map(app => <SelectItem key={app} value={app}>{app}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+          <div className="space-y-1">
+            <Label>Source Subcollection</Label>
+            {loadingSourceSubs ? (
+              <div className="flex items-center gap-2 text-muted-foreground text-sm h-10">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+              </div>
+            ) : (
+              <Select value={sourceSub} onValueChange={handleSourceSubChange} disabled={!sourceApp}>
+                <SelectTrigger><SelectValue placeholder="Choose subcollection" /></SelectTrigger>
+                <SelectContent>
+                  {sourceSubs.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Step 2 — Copy To</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <Label>Target App</Label>
+            <Select value={targetApp} onValueChange={handleTargetAppChange}>
+              <SelectTrigger><SelectValue placeholder="Choose target app" /></SelectTrigger>
+              <SelectContent>
+                {brandApps.map(app => <SelectItem key={app} value={app}>{app}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <Label>Target Subcollection</Label>
+              {targetApp && (
+                <button
+                  type="button"
+                  className="text-xs text-primary hover:underline"
+                  onClick={() => { setUseNewSub(v => !v); setTargetSub(''); setNewTargetSub(''); }}
+                >
+                  {useNewSub ? 'Pick existing' : 'Create new'}
+                </button>
+              )}
+            </div>
+            {useNewSub ? (
+              <Input
+                value={newTargetSub}
+                onChange={e => setNewTargetSub(e.target.value)}
+                placeholder="e.g. Galaxy S26 Ultra"
+                disabled={!targetApp}
+              />
+            ) : loadingTargetSubs ? (
+              <div className="flex items-center gap-2 text-muted-foreground text-sm h-10">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+              </div>
+            ) : (
+              <Select value={targetSub} onValueChange={setTargetSub} disabled={!targetApp}>
+                <SelectTrigger><SelectValue placeholder="Choose subcollection" /></SelectTrigger>
+                <SelectContent>
+                  {targetSubs.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Step 3 — pick banners */}
+      {sourceApp && sourceSub && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center justify-between gap-2">
+              <span>Step 3 — Select Banners ({selected.size} selected)</span>
+              {sourceBanners.length > 0 && selectableIds.length > 0 && (
+                <Button variant="ghost" size="sm" onClick={toggleAll}>
+                  {selected.size === selectableIds.length ? 'Clear all' : 'Select all'}
+                </Button>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isSameLocation && (
+              <p className="text-sm text-amber-600 dark:text-amber-500">
+                Source and target are the same subcollection — choose a different target.
+              </p>
+            )}
+
+            {loadingSourceBanners ? (
+              <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin" /></div>
+            ) : sourceBanners.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No banners in this subcollection.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {sourceBanners.map(b => {
+                  const alreadyThere = existingTargetIds.has(b.id);
+                  const isSelected = selected.has(b.id);
+                  return (
+                    <button
+                      type="button"
+                      key={b.id}
+                      onClick={() => !alreadyThere && toggle(b.id)}
+                      disabled={alreadyThere}
+                      className={`text-left rounded-lg border overflow-hidden transition-colors ${
+                        alreadyThere
+                          ? 'opacity-50 cursor-not-allowed'
+                          : isSelected
+                            ? 'border-primary ring-2 ring-primary/40'
+                            : 'hover:border-primary/60'
+                      }`}
+                    >
+                      <div className="relative h-32 bg-muted">
+                        {b.bannerUrl ? (
+                          <img src={b.bannerUrl} alt={b.bannerName} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="h-full flex items-center justify-center">
+                            <ImageIcon className="h-7 w-7 text-muted-foreground" />
+                          </div>
+                        )}
+                        {isSelected && !alreadyThere && (
+                          <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1">
+                            <Check className="h-3 w-3" />
+                          </div>
+                        )}
+                        <Badge className="absolute top-2 left-2 text-xs" variant="secondary">
+                          {b.bannerType || 'wallpaper'}
+                        </Badge>
+                      </div>
+                      <div className="p-2.5">
+                        <p className="text-sm font-medium truncate">{b.bannerName || b.id}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {alreadyThere ? 'Already in target' : `ID: ${b.id.slice(0, 12)}…`}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <Button
+              onClick={handleCopy}
+              disabled={
+                copying ||
+                selected.size === 0 ||
+                !targetApp ||
+                !resolvedTargetSub ||
+                isSameLocation
+              }
+              className="w-full"
+            >
+              {copying ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
+              {copying
+                ? 'Copying…'
+                : targetApp && resolvedTargetSub
+                  ? `Copy ${selected.size || ''} banner(s) to ${targetApp} / ${resolvedTargetSub}`.replace('  ', ' ')
+                  : 'Choose a target app and subcollection'}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {sourceApp && sourceSub && targetApp && resolvedTargetSub && !isSameLocation && (
+        <p className="text-xs text-muted-foreground flex items-center justify-center gap-2">
+          {sourceApp} / {sourceSub} <ArrowRight className="h-3 w-3" /> {targetApp} / {resolvedTargetSub}
+        </p>
+      )}
+    </div>
+  );
+};
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 const BannerManagement: React.FC = () => {
   return (
@@ -464,7 +828,7 @@ const BannerManagement: React.FC = () => {
           Banner Management
         </h1>
         <p className="text-muted-foreground text-sm">
-          Create app promos and attach them to brand app banner collections
+          Create app promos, attach them to brand app banner collections, and copy banners between apps
         </p>
       </div>
 
@@ -472,6 +836,7 @@ const BannerManagement: React.FC = () => {
         <TabsList className="mb-6">
           <TabsTrigger value="promos">App Promos</TabsTrigger>
           <TabsTrigger value="attach">Attach to App</TabsTrigger>
+          <TabsTrigger value="copy">Copy Between Apps</TabsTrigger>
         </TabsList>
 
         <TabsContent value="promos">
@@ -480,6 +845,10 @@ const BannerManagement: React.FC = () => {
 
         <TabsContent value="attach">
           <AttachToAppTab />
+        </TabsContent>
+
+        <TabsContent value="copy">
+          <CopyBetweenAppsTab />
         </TabsContent>
       </Tabs>
     </Layout>
