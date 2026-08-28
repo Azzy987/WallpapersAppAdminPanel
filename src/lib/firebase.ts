@@ -1605,7 +1605,15 @@ export const isSeriesLessBrand = (
   categories: Array<{ categoryName: string; seriesless?: boolean }> = []
 ): boolean => {
   if (brand === 'Wallez') return true;
-  return categories.some(c => c.categoryName === brand && c.seriesless === true);
+
+  // Match case-insensitively and ignore spacing, so a category saved as
+  // "GTA VI" still matches the "GTAVI" collection name and vice versa
+  const normalize = (value: string) => value.replace(/\s+/g, '').toLowerCase();
+  const target = normalize(brand);
+
+  return categories.some(
+    c => normalize(c.categoryName) === target && c.seriesless === true
+  );
 };
 
 export const getSavedSources = async (): Promise<string[]> => {

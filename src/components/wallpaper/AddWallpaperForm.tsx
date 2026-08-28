@@ -797,7 +797,15 @@ const AddWallpaperForm: React.FC = () => {
       } else {
         // For non-Apple brands, always validate device series
         if (devices[brand] && form.selectedDeviceSeries.length === 0) {
-          toast.error(`At least one device series must be selected for ${brand} wallpapers`);
+          const known = devices[brand]?.devices?.length ?? 0;
+          console.warn(
+            `[series required] brand="${brand}" seriesless=false deviceCount=${known}. ` +
+            `Tick "No device series" on the "${brand}" category to skip this.`
+          );
+          toast.error(
+            `At least one device series must be selected for ${brand} wallpapers. ` +
+            `If ${brand} has no devices, edit the category and tick "No device series".`
+          );
           return false;
         }
       }
