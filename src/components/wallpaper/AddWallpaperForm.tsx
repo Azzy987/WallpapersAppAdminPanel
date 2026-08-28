@@ -12,6 +12,7 @@ import {
   Device,
   getDeviceLaunchYear,
   brandDevicePresets,
+  isSeriesLessBrand,
   coerceLaunchYear,
   extractLaunchYearFromIosVersion
 } from '@/lib/firebase';
@@ -791,8 +792,8 @@ const AddWallpaperForm: React.FC = () => {
             return false;
           }
         }
-      } else if (brand === 'Wallez') {
-        // Wallez uses style categories only — no device series required
+      } else if (isSeriesLessBrand(brand, categories)) {
+        // Seriesless brands use categories only — no device series required
       } else {
         // For non-Apple brands, always validate device series
         if (devices[brand] && form.selectedDeviceSeries.length === 0) {
@@ -939,16 +940,21 @@ const AddWallpaperForm: React.FC = () => {
             }
           } else {
             const launchYearValue = coerceLaunchYear(form.launchYear);
-              
+            const seriesLess = isSeriesLessBrand(brand, categories);
+
             const brandWallpaperData: Record<string, unknown> = {
               wallpaperName: form.wallpaperName,
               imageUrl: form.imageUrl,
               thumbnail: getUrlWithL(form.imageUrl),
-              series: form.series || 'Default Series',
               views: 0,
               downloads: 0,
               ...metadata
             };
+            // Seriesless brands have no device lineup, so writing a placeholder
+            // series would only create a bogus filter entry
+            if (!seriesLess) {
+              brandWallpaperData.series = form.series || 'Default Series';
+            }
             if (launchYearValue !== undefined) {
               brandWallpaperData.launchYear = launchYearValue;
             }

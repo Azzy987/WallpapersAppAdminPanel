@@ -5,7 +5,7 @@ import { Trash2 } from 'lucide-react';
 import WallpaperBasicInfo from './WallpaperBasicInfo';
 import CategorySelector from './CategorySelector';
 import DeviceSelector from './DeviceSelector';
-import { Category, Device } from '@/lib/firebase';
+import { Category, Device, isSeriesLessBrand } from '@/lib/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { UploadedWallpaperItem } from '@/lib/imageMetadata';
@@ -184,6 +184,8 @@ const WallpaperFormItem: React.FC<WallpaperFormItemProps> = ({
               
               {form.selectedCategories
                 .filter(cat => categories.find(c => c.categoryName === cat && c.categoryType === 'brand'))
+                // Seriesless brands have no device lineup, so no picker to show
+                .filter(cat => !isSeriesLessBrand(cat, categories))
                 .map(brandCategory => (
                   <DeviceSelector
                     key={`${brandCategory}-devices`}

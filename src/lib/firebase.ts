@@ -52,6 +52,12 @@ export interface Category {
   categoryType: 'main' | 'brand';
   thumbnail: string;
   subcategories?: string[];
+  /**
+   * Brand categories only. Set for brands whose wallpapers are not tied to a
+   * device series (a game or franchise, say), so the device/series picker is
+   * hidden and no series is required when uploading.
+   */
+  seriesless?: boolean;
 }
 
 export interface Device {
@@ -1574,7 +1580,12 @@ export const addCategory = async (category) => {
     if (category.categoryType === 'main' && mainCategories[category.categoryName]) {
       categoryData.subcategories = mainCategories[category.categoryName];
     }
-    
+
+    // Brands with no device lineup (a game or franchise) skip the series picker
+    if (category.categoryType === 'brand' && category.seriesless) {
+      categoryData.seriesless = true;
+    }
+
     await setDoc(doc(categoriesRef, category.categoryName), categoryData);
     console.log("Category added: ", category.categoryName);
     return category.categoryName;
@@ -1582,6 +1593,19 @@ export const addCategory = async (category) => {
     console.error("Error adding category: ", error);
     throw error;
   }
+};
+
+/**
+ * True when a brand's wallpapers are not tied to a device series, so the
+ * series picker should be hidden and no series required on upload.
+ * Wallez predates the flag and is treated as seriesless by name.
+ */
+export const isSeriesLessBrand = (
+  brand: string,
+  categories: Array<{ categoryName: string; seriesless?: boolean }> = []
+): boolean => {
+  if (brand === 'Wallez') return true;
+  return categories.some(c => c.categoryName === brand && c.seriesless === true);
 };
 
 export const getSavedSources = async (): Promise<string[]> => {
@@ -1692,6 +1716,18 @@ export const updateCategoryThumbnail = async (categoryName: string, thumbnail: s
   }
 };
 
+/** Toggle the seriesless flag on an existing brand category */
+export const updateCategorySeriesless = async (categoryName: string, seriesless: boolean) => {
+  try {
+    await updateDoc(doc(categoriesRef, categoryName), { seriesless });
+    console.log(`Category seriesless set to ${seriesless}: `, categoryName);
+    return categoryName;
+  } catch (error) {
+    console.error("Error updating category seriesless flag: ", error);
+    throw error;
+  }
+};
+
 // Function to update a wallpaper
 export const updateWallpaper = async (collectionName: string, id: string, data: any) => {
   try {
@@ -1769,7 +1805,8 @@ export const getCategories = async () => {
       categories.push({
         categoryName: doc.id,
         categoryType: data.categoryType,
-        thumbnail: data.thumbnail
+        thumbnail: data.thumbnail,
+        seriesless: data.seriesless === true
       });
     });
     return categories;

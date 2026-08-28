@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { addCategory, updateCategoryThumbnail, type Category } from '@/lib/firebase';
+import { addCategory, updateCategoryThumbnail, updateCategorySeriesless, type Category } from '@/lib/firebase';
 import { toast } from 'sonner';
 import { ImageIcon, Loader2 } from 'lucide-react';
 
@@ -76,6 +76,7 @@ const CategoryDialog: React.FC<CategoryDialogProps> = ({
 
   const [categoryName, setCategoryName] = useState('');
   const [categoryType, setCategoryType] = useState<'main' | 'brand'>('main');
+  const [seriesless, setSeriesless] = useState(false);
   const [thumbnailSource, setThumbnailSource] = useState<'url' | 'upload'>('url');
   const [thumbnail, setThumbnail] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -89,6 +90,7 @@ const CategoryDialog: React.FC<CategoryDialogProps> = ({
   const resetForm = () => {
     setCategoryName('');
     setCategoryType('main');
+    setSeriesless(false);
     setThumbnailSource('url');
     setThumbnail('');
     setImageFile(null);
@@ -105,6 +107,7 @@ const CategoryDialog: React.FC<CategoryDialogProps> = ({
     if (editingCategory) {
       setCategoryName(editingCategory.categoryName);
       setCategoryType(editingCategory.categoryType);
+      setSeriesless(editingCategory.seriesless === true);
       setThumbnail(editingCategory.thumbnail || '');
       setThumbnailSource('url');
       setImageFile(null);
@@ -176,7 +179,15 @@ const CategoryDialog: React.FC<CategoryDialogProps> = ({
         }
 
         await updateCategoryThumbnail(editingCategory.categoryName, thumbnailUrl);
-        toast.success('Category thumbnail updated');
+
+        if (
+          editingCategory.categoryType === 'brand' &&
+          seriesless !== (editingCategory.seriesless === true)
+        ) {
+          await updateCategorySeriesless(editingCategory.categoryName, seriesless);
+        }
+
+        toast.success('Category updated');
         resetForm();
         onOpenChange(false);
         onCategoriesUpdated();
@@ -211,6 +222,7 @@ const CategoryDialog: React.FC<CategoryDialogProps> = ({
         categoryName: categoryName.trim(),
         categoryType,
         thumbnail: thumbnailUrl || 'https://via.placeholder.com/200',
+        seriesless: categoryType === 'brand' ? seriesless : false,
       });
 
       toast.success('Category added successfully');
@@ -347,6 +359,26 @@ const CategoryDialog: React.FC<CategoryDialogProps> = ({
                 {' · '}
                 {editingCategory?.categoryType === 'main' ? 'Main Category' : 'Brand Category'}
               </div>
+
+              {editingCategory?.categoryType === 'brand' && (
+                <div className="flex items-start space-x-2">
+                  <input
+                    type="checkbox"
+                    id="editCategorySeriesless"
+                    checked={seriesless}
+                    onChange={(e) => setSeriesless(e.target.checked)}
+                    className="mt-1 accent-primary"
+                  />
+                  <div>
+                    <Label htmlFor="editCategorySeriesless">No device series</Label>
+                    <p className="text-xs text-muted-foreground">
+                      For brands with no device lineup, such as a game or franchise.
+                      Hides the device series picker and does not require one on upload.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {thumbnailFields}
             </>
           ) : (
@@ -379,6 +411,25 @@ const CategoryDialog: React.FC<CategoryDialogProps> = ({
                   </div>
                 </RadioGroup>
               </div>
+
+              {categoryType === 'brand' && (
+                <div className="flex items-start space-x-2">
+                  <input
+                    type="checkbox"
+                    id="categorySeriesless"
+                    checked={seriesless}
+                    onChange={(e) => setSeriesless(e.target.checked)}
+                    className="mt-1 accent-primary"
+                  />
+                  <div>
+                    <Label htmlFor="categorySeriesless">No device series</Label>
+                    <p className="text-xs text-muted-foreground">
+                      For brands with no device lineup, such as a game or franchise.
+                      Hides the device series picker and does not require one on upload.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {thumbnailFields}
             </>
